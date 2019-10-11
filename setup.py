@@ -26,6 +26,7 @@ setup(
     ],
     description='Examples of minimal publishers using rclpy.',
     license='Apache License, Version 2.0',
+    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'biped_random = examples.biped_random:main',
