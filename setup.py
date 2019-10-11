@@ -4,7 +4,7 @@ package_name = 'openai_ros2'
 
 setup(
     name=package_name,
-    version='0.8.0',
+    version='0.1.0',
     packages=[package_name, 'examples'],
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -13,18 +13,12 @@ setup(
     ],
     install_requires=['setuptools', 'gym', 'billiard'],
     zip_safe=True,
-    author='Mikael Arguedas',
-    author_email='mikael@osrfoundation.org',
-    maintainer='Mikael Arguedas',
-    maintainer_email='mikael@osrfoundation.org',
-    keywords=['ROS'],
-    classifiers=[
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python',
-        'Topic :: Software Development',
-    ],
-    description='Examples of minimal publishers using rclpy.',
+    author='Poh Zhi-Ee',
+    author_email='zhiee.poh@httechnology.com',
+    maintainer='Poh Zhi-Ee',
+    maintainer_email='zhiee.poh@httechnology.com',
+    keywords=['ROS2', 'OpenAI', 'Gym'],
+    description='ros2 implementation of openai_ros',
     license='Apache License, Version 2.0',
     tests_require=['pytest'],
     entry_points={

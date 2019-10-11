@@ -3,9 +3,9 @@
 <package format="2">
   <name>openai_ros2</name>
   <version>0.1.0</version>
-  <description>ASdASDA</description>
-
-  <maintainer email="sloretz@openrobotics.org">Shane Loretz</maintainer>
+  <description>ros2 implementation of openai_ros</description>
+  <author email="zhiee.poh@httechnology.com">Poh Zhi-Ee</author>
+  <maintainer email="zhiee.poh@httechnology.com">Poh Zhi-Ee</maintainer>
   <license>Apache License 2.0</license>
 
   <exec_depend>rclpy</exec_depend>
