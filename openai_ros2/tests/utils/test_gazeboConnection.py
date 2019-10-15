@@ -2,6 +2,9 @@ from unittest import TestCase
 import rclpy
 from std_srvs.srv import Empty
 from rclpy.executors import SingleThreadedExecutor
+from openai_ros2.utils.gazebo_connection import GazeboConnection
+from gazebo_msgs.srv import DeleteEntity
+from gazebo_msgs.srv import SpawnEntity
 
 
 class MockGazebo:
@@ -29,6 +32,7 @@ class MockGazebo:
 class TestGazeboConnection(TestCase):
     context = None
     node = None
+    gazebo_connection = None
 
     @classmethod
     def setUpClass(cls):
@@ -37,31 +41,21 @@ class TestGazeboConnection(TestCase):
         cls.executor = SingleThreadedExecutor(context=cls.context)
         cls.node = rclpy.create_node('TestGazeboConnectionClient', context=cls.context)
         cls.mock_gazebo = MockGazebo(cls.node)
+        cls.gazebo_connection = GazeboConnection(cls.node)
 
     @classmethod
     def tearDownClass(cls):
         cls.node.destroy_node()
         rclpy.shutdown(context=cls.context)
 
-    def call_service(self, service_name):
-        client = self.node.create_client(Empty, service_name)
-        try:
-            self.assertTrue(client.wait_for_service(timeout_sec=10))
-            future = client.call_async(Empty.Request())
-            executor = rclpy.executors.SingleThreadedExecutor(context=self.context)
-            rclpy.spin_until_future_complete(self.node, future, executor=executor)
-            self.assertTrue(future.result() is not None)
-        finally:
-            self.node.destroy_client(client)
-
     def test_pauseSim(self):
-        self.call_service('/pause_physics')
+        self.gazebo_connection.pauseSim()
         self.assertTrue(self.mock_gazebo._pause_called, "Pause service not called")
 
     def test_unpauseSim(self):
-        self.call_service('/unpause_physics')
+        self.gazebo_connection.unpauseSim()
         self.assertTrue(self.mock_gazebo._unpause_called, "Unpause service not called")
 
     def test_resetSim(self):
-        self.call_service('/reset_simulation')
-        self.assertTrue(self.mock_gazebo._reset_called, "Unpause service not called")
+        self.gazebo_connection.resetSim()
+        self.assertTrue(self.mock_gazebo._reset_called, "Reset service not called")
