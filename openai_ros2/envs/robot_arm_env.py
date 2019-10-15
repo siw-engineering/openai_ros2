@@ -27,11 +27,11 @@ class RobotArmEnv(RobotGazeboEnv):
                                             reset_world_or_sim="WORLD")
 
 
-        self.gazebo.unpauseSim()
+        self.gazebo.unpause_sim()
         self._sub = self.node.create_subscription(JointState, "/joint_states", self.jointStateSubscriber, qos_profile_sensor_data)
         #self._cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         #self._check_publishers_connection()
-        self.gazebo.pauseSim()
+        self.gazebo.pause_sim()
 
     
     def jointStateSubscriber(self, message):

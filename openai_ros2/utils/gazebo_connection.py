@@ -9,32 +9,32 @@ class GazeboConnection:
         self.node = node
         rclpy.init()
         self._reset_sim = self.node.create_client(Empty, '/reset_simulation')
-        self._physics_pauser = self.node.create_client(Empty, '/pause_physics')
-        self._physics_unpauser = self.node.create_client(Empty, '/unpause_physics')
+        self._physics_pause_client = self.node.create_client(Empty, '/pause_physics')
+        self._physics_unpause_client = self.node.create_client(Empty, '/unpause_physics')
         self._entity_delete = self.node.create_client(DeleteEntity, '/delete_entity')
 
-    def pauseSim(self):
-        while not self._physics_pauser.wait_for_service(timeout_sec=1.0):
+    def pause_sim(self) -> None:
+        while not self._physics_pause_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('/pause_physics service not available, waiting again...')
-        pause_future = self._physics_pauser.call_async(Empty.Request())
+        pause_future = self._physics_pause_client.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self.node, pause_future)
         print("Pausing simulation")
 
-    def unpauseSim(self):
-        while not self._physics_unpauser.wait_for_service(timeout_sec=1.0):
+    def unpause_sim(self) -> None:
+        while not self._physics_unpause_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('/unpause_physics service not available, waiting again...')
-        unpause_future = self._physics_unpauser.call_async(Empty.Request())
+        unpause_future = self._physics_unpause_client.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self.node, unpause_future)
         print("Unpausing simulation")
 
-    def resetSim(self):
+    def reset_sim(self) -> None:
         while not self._reset_sim.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('/reset_simulation service not available, waiting again...')
         reset_future = self._reset_sim.call_async(Empty.Request())
         print("Resetting simulation")
         rclpy.spin_until_future_complete(self.node, reset_future)
 
-    def deleteEntity(self, entity_name: str) -> bool:
+    def delete_entity(self, entity_name: str) -> bool:
         """
         Deletes an entity from gazebo by name of the entity
         :param entity_name:

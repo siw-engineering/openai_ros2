@@ -6,6 +6,7 @@ def getModelFileType(path):
     else:
         raise TypeError('the file must be .sdf or .urdf')
 
+
 def getParserArgsRobot():
     import argparse
     parser = argparse.ArgumentParser(description='Robot environment argument provider.')
@@ -21,18 +22,3 @@ def getParserArgsRobot():
         network segmentation to allow multiple instances.')
 
     return parser
-
-def cleanOldFiles(tempPath, fileEnding, days):
-    import os
-    import time
-    folderPath = tempPath
-    fileEndsWith = fileEnding
-
-    now = time.time()
-
-    for file in os.listdir(folderPath):
-        fileFullPath = os.path.join(folderPath, file)
-        if os.path.isfile(fileFullPath) and file.endswith(fileEndsWith):
-            #Delete files older than x days
-            if os.stat(fileFullPath).st_mtime < now - days * 86400:
-                os.remove(fileFullPath)

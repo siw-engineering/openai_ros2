@@ -1,41 +1,49 @@
+import abc
+from collections import Iterable
+from collections import Sequence
 
-import rclpy
-import os
 import gym
+import rclpy
+# https://bitbucket.org/theconstructcore/theconstruct_msgs/src/master/msg/RLExperimentInfo.msg
+# from openai_ros.msg import RLExperimentInfo
+from biped_gym.utils import ut_param_server
 from gym.utils import seeding
 from std_srvs.srv import Empty
-from gazebo_connection import RobotArmEnvByFrank
-#from .controllers_connection import ControllersConnection
-#https://bitbucket.org/theconstructcore/theconstruct_msgs/src/master/msg/RLExperimentInfo.msg
-#from openai_ros.msg import RLExperimentInfo
-from biped_gym.utils import ut_param_server
+
+from openai_ros2.utils.gazebo_connection import GazeboConnection
+
 
 # https://github.com/openai/gym/blob/master/gym/core.py
 class RobotGazeboEnv(gym.Env):
 
-    def __init__(self, reset_controls):
-        # To reset Simulations
+    def __init__(self):
         rclpy.init()
-        self.node=rclpy.create_node(self.__class__.__name__)
+        self.node = rclpy.create_node(self.__class__.__name__)
+
+        # Get robot name from parameter server
         robot_names = ut_param_server.getRobots(self.node)
         self.robot_name = robot_names[0]
-        self._robot_resetter = self.node.create_client(Empty, '/'+self.robot_name+'/reset')
-        self.gazebo = RobotArmEnvByFrank(self.node)
-        #self.controllers_object = ControllersConnection(namespace=robot_name_space, controllers_list=controllers_list)
-        self.reset_controls = reset_controls
+
+        # Create reset client to call the reset service
+        self._robot_resetter = self.node.create_client(Empty, '/' + self.robot_name + '/reset')
+        self.gazebo = GazeboConnection(self.node)
+        self.np_random = None
         self.seed()
 
         # Set up ROS related variables
         self.episode_num = 0
         self.cumulated_episode_reward = 0
-        #self.reward_pub = rospy.Publisher('/openai/reward', RLExperimentInfo, queue_size=1)
+        # self.reward_pub = rospy.Publisher('/openai/reward', RLExperimentInfo, queue_size=1)
+
+        # Launch relevant subprocesses (using ros2 launch)
+        # Note: Including these subprocesses will make it undebuggable
 
     # Env methods
-    def seed(self, seed=None):
+    def seed(self, seed=None) -> list:
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action):
+    def step(self, action: Sequence[float]) -> Iterable[Sequence[float], float, bool, str]:
         """
         Function executed each time step.
         Here we get the action execute it in a time step and retrieve the
@@ -48,47 +56,43 @@ class RobotGazeboEnv(gym.Env):
         Here we should convert the action num to movement action, execute the action in the
         simulation and get the observations result of performing that action.
         """
-        
-        self.gazebo.unpauseSim()
-        self.executeAction(action)  #TODO add action need to use 1-? 2-?
-        self.gazebo.pauseSim()
-        obs = self._get_obs()
+
+        # TODO add action need to use 1-? 2-?
+        self.execute_action(action)
+        obs = self._get_observations()
         done = self._is_done(obs)
-        info = {}
+        info = self._get_info()
         reward = self._compute_reward(obs, done)
         self.cumulated_episode_reward += reward
 
-
         return obs, reward, done, info
 
-    def reset(self):
+    def reset(self) -> None:
         self._reset_sim()
-        self._init_env_variables()
         self._update_episode()
-        obs = self._get_obs()
-        return obs
 
-    def close(self):
+    def close(self) -> None:
         """
         Function executed when closing the environment.
         Use it for closing GUIS and other systems that need closing.
         :return:
         """
 
-    def _update_episode(self):
+    # Extension methods
+    # ----------------------------
+    def _update_episode(self) -> None:
         """
         Publishes the cumulated reward of the episode and 
         increases the episode number by one.
         :return:
-        
-        self._publish_reward_topic(
-                                    self.cumulated_episode_reward,
-                                    self.episode_num
-                                    )
         """
+
+        self._publish_reward_topic(
+            self.cumulated_episode_reward,
+            self.episode_num
+        )
         self.episode_num += 1
         self.cumulated_episode_reward = 0
-        
 
     '''def _publish_reward_topic(self, reward, episode_number=1):  #TODO use for publish purposes
         """
@@ -103,84 +107,36 @@ class RobotGazeboEnv(gym.Env):
         reward_msg.episode_reward = reward
         self.reward_pub.publish(reward_msg)'''
 
-    # Extension methods
-    # ---------------------------- 
-    def resetController(self):  
-        """Sets the Robot in its init pose
-        """
-        raise NotImplementedError()
+    @abc.abstractmethod
+    def render(self, mode='human') -> None:
+        pass
 
-            
-    def _reset_sim(self):
-        """Resets a simulation
-        """
-        if self.reset_controls :
-            self.gazebo.unpauseSim()
-            #self.controllers_object.reset_controllers()
-            #self._check_all_systems_ready()
-            #self._set_init_pose()
-            self.gazebo.pauseSim()
-            #self.resetController()
-            self.gazebo.resetSim()
-            self.gazebo.unpauseSim()
-            #self.controllers_object.reset_controllers()
-            #self._check_all_systems_ready()
-            self.gazebo.pauseSim()
-            
-        else:
-            self.gazebo.unpauseSim()
-            #self._check_all_systems_ready()
-            #self._set_init_pose()
-            self.gazebo.pauseSim()
-            self.gazebo.resetSim()
-            self.gazebo.unpauseSim()
-            #self._check_all_systems_ready()
-            self.gazebo.pauseSim()
-            
-        
-        return True
+    @abc.abstractmethod
+    def _reset_controller(self) -> None:
+        pass
 
-    def _set_init_pose(self):
-        """Sets the Robot in its init pose
-        """
-        raise NotImplementedError()
+    @abc.abstractmethod
+    def _get_observations(self) -> Iterable[float]:
+        pass
 
-    def _check_all_systems_ready(self):
-        """
-        Checks that all the sensors, publishers and other simulation systems are
-        operational.
-        """
-        raise NotImplementedError()
+    @abc.abstractmethod
+    def _get_info(self) -> str:
+        pass
 
-    def _get_obs(self):
-        """Returns the observation.
-        """
-        raise NotImplementedError()
+    def _reset_sim(self) -> None:
+        self.gazebo.pause_sim()
+        self.gazebo.reset_sim()
+        self._reset_controller()
+        self.gazebo.unpause_sim()
 
-    def _init_env_variables(self):
-        """Inits variables needed to be initialised each time we reset at the start
-        of an episode.
-        """
-        raise NotImplementedError()
+    @abc.abstractmethod
+    def execute_action(self, action: Iterable[float]) -> None:
+        pass
 
-    def executeAction(self, action):
-        """Applies the given action to the simulation.
-        """
-        raise NotImplementedError()
+    @abc.abstractmethod
+    def _is_done(self, observations: Iterable[float]) -> bool:
+        pass
 
-    def _is_done(self, observations):
-        """Indicates whether or not the episode is done ( the robot has fallen for example).
-        """
-        raise NotImplementedError()
-
-    def _compute_reward(self, observations, done):
-        """Calculates the reward to give based on the observations given.
-        """
-        raise NotImplementedError()
-
-    def _env_setup(self, initial_qpos):
-        """Initial configuration of the environment. Can be used to configure initial state
-        and extract information from the simulation.
-        """
-        raise NotImplementedError()
-
+    @abc.abstractmethod
+    def _compute_reward(self, observations: Iterable[float], done: bool):
+        pass
