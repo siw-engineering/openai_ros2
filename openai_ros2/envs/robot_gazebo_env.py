@@ -1,27 +1,26 @@
 import abc
-from collections import Iterable
-from collections import Sequence
+from collections import Iterable, Collection, Sequence
 
 import gym
 import rclpy
 # https://bitbucket.org/theconstructcore/theconstruct_msgs/src/master/msg/RLExperimentInfo.msg
 # from openai_ros.msg import RLExperimentInfo
-from biped_gym.utils import ut_param_server
+from openai_ros2.utils import ut_param_server
 from gym.utils import seeding
 from std_srvs.srv import Empty
 
 from openai_ros2.utils.gazebo_connection import GazeboConnection
+from openai_ros2.robot_base import RobotBase
 
 
 # https://github.com/openai/gym/blob/master/gym/core.py
 class RobotGazeboEnv(gym.Env):
-
     def __init__(self):
         rclpy.init()
         self.node = rclpy.create_node(self.__class__.__name__)
 
         # Get robot name from parameter server
-        robot_names = ut_param_server.getRobots(self.node)
+        robot_names = ut_param_server.get_robots(self.node)
         self.robot_name = robot_names[0]
 
         # Create reset client to call the reset service
@@ -58,7 +57,7 @@ class RobotGazeboEnv(gym.Env):
         """
 
         # TODO add action need to use 1-? 2-?
-        self.execute_action(action)
+        self._set_action(action)
         obs = self._get_observations()
         done = self._is_done(obs)
         info = self._get_info()
@@ -71,12 +70,18 @@ class RobotGazeboEnv(gym.Env):
         self._reset_sim()
         self._update_episode()
 
+    @abc.abstractmethod
     def close(self) -> None:
         """
         Function executed when closing the environment.
         Use it for closing GUIS and other systems that need closing.
         :return:
         """
+        pass
+
+    @abc.abstractmethod
+    def render(self, mode='human') -> None:
+        pass
 
     # Extension methods
     # ----------------------------
@@ -87,10 +92,10 @@ class RobotGazeboEnv(gym.Env):
         :return:
         """
 
-        self._publish_reward_topic(
-            self.cumulated_episode_reward,
-            self.episode_num
-        )
+        # self._publish_reward_topic(
+        #     self.cumulated_episode_reward,
+        #     self.episode_num
+        # )
         self.episode_num += 1
         self.cumulated_episode_reward = 0
 
@@ -106,17 +111,12 @@ class RobotGazeboEnv(gym.Env):
         reward_msg.episode_number = episode_number
         reward_msg.episode_reward = reward
         self.reward_pub.publish(reward_msg)'''
-
-    @abc.abstractmethod
-    def render(self, mode='human') -> None:
-        pass
-
     @abc.abstractmethod
     def _reset_controller(self) -> None:
         pass
 
     @abc.abstractmethod
-    def _get_observations(self) -> Iterable[float]:
+    def _get_observations(self) -> Sequence[float]:
         pass
 
     @abc.abstractmethod
@@ -130,13 +130,13 @@ class RobotGazeboEnv(gym.Env):
         self.gazebo.unpause_sim()
 
     @abc.abstractmethod
-    def execute_action(self, action: Iterable[float]) -> None:
+    def _set_action(self, action: Sequence[float]) -> None:
         pass
 
     @abc.abstractmethod
-    def _is_done(self, observations: Iterable[float]) -> bool:
+    def _is_done(self, observations: Sequence[float]) -> bool:
         pass
 
     @abc.abstractmethod
-    def _compute_reward(self, observations: Iterable[float], done: bool):
+    def _compute_reward(self, observations: Sequence[float], done: bool):
         pass

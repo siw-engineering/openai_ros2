@@ -16,6 +16,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from biped_gym.utils import ut_generic
 
+
 def startLaunchServiceProcess(launchDesc):
     """Starts a Launch Service process. To be called from subclasses.
 
@@ -26,7 +27,7 @@ def startLaunchServiceProcess(launchDesc):
     launchService = LaunchService()
     launchService.include_launch_description(launchDesc)
     process = Process(target=launchService.run)
-    #The daemon process is terminated automatically before the main program exits,
+    # The daemon process is terminated automatically before the main program exits,
     # to avoid leaving orphaned processes running
     process.daemon = True
     process.start()

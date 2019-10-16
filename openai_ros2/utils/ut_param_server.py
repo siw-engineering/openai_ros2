@@ -1,10 +1,11 @@
 from parameter_server_interfaces.srv import GetAllJoints
 from parameter_server_interfaces.srv import GetRobots
 from rclpy.qos import qos_profile_services_default
+from collections import Collection
 import rclpy
 
 
-def getRobots(node):
+def get_robots(node):
     get_robots_client = node.create_client(
         GetRobots, "/GetRobots", qos_profile=qos_profile_services_default)
     req = GetRobots.Request()
@@ -21,7 +22,7 @@ def getRobots(node):
         node.get_logger().info('Service call failed %r' % (future.exception(),))
 
 
-def getJoints(node, robot_name):
+def get_joints(node, robot_name) -> Collection[float]:
     get_joints_client = node.create_client(
         GetAllJoints, "/GetAllControlJoints", qos_profile=qos_profile_services_default)
     req = GetAllJoints.Request()
@@ -37,3 +38,4 @@ def getJoints(node, robot_name):
         return joint_names
     else:
         node.get_logger().info('Service call failed %r' % (future.exception(),))
+        return []

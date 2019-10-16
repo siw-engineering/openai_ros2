@@ -24,7 +24,9 @@ import gym
 import copy
 import os
 import threading
+
 gym.logger.set_level(40)  # hide warnings
+
 
 class BipedEnv(gym.Env):
 
@@ -57,7 +59,7 @@ class BipedEnv(gym.Env):
 
         # class variables
         self._observation_msg = None
-        self.max_episode_steps = 1024 #default value, can be updated from baselines
+        self.max_episode_steps = 1024  # default value, can be updated from baselines
         self.iterator = 0
         self.reset_jnts = True
         self._collision_msg = None
@@ -71,7 +73,8 @@ class BipedEnv(gym.Env):
         # # Topics for the robot publisher and subscriber.
         JOINT_PUBLISHER = '/lobot/control'
         # Get Joint names from the parameter server
-        get_joints_client = self.node.create_client(GetAllJoints, "/GetAllControlJoints", qos_profile=qos_profile_services_default)
+        get_joints_client = self.node.create_client(GetAllJoints, "/GetAllControlJoints",
+                                                    qos_profile=qos_profile_services_default)
         req = GetAllJoints.Request()
         req.robot = "lobot"
         while not get_joints_client.wait_for_service(timeout_sec=3.0):
@@ -90,7 +93,7 @@ class BipedEnv(gym.Env):
         INITIAL_JOINTS = np.full((len(joint_names)), 0.0).tolist()
         reset_condition = {
             'initial_positions': INITIAL_JOINTS,
-             'initial_velocities': []
+            'initial_velocities': []
         }
         #############################
 
@@ -106,12 +109,14 @@ class BipedEnv(gym.Env):
 
         # Subscribe to the appropriate topics, taking into account the particular robot
         self._pub = self.node.create_publisher(JointControl, JOINT_PUBLISHER, qos_profile=qos_profile_sensor_data)
-        self._sub = self.node.create_subscription(JointState, "/joint_states", self.observation_callback, qos_profile_sensor_data)
+        self._sub = self.node.create_subscription(JointState, "/joint_states", self.observation_callback,
+                                                  qos_profile_sensor_data)
 
         # TODO: Make the clock node run on a separate thread so weird issues like outdated clock can stop happening
         self.lock = threading.Lock()
-        self.clock_node = rclpy.create_node(self.__class__.__name__+"_clock")
-        self._sub_clock = self.clock_node.create_subscription(RosClock, '/clock', self.clock_callback, qos_profile=qos_profile_sensor_data)
+        self.clock_node = rclpy.create_node(self.__class__.__name__ + "_clock")
+        self._sub_clock = self.clock_node.create_subscription(RosClock, '/clock', self.clock_callback,
+                                                              qos_profile=qos_profile_sensor_data)
         self.exec = rclpy.executors.MultiThreadedExecutor()
         self.exec.add_node(self.clock_node)
         t1 = threading.Thread(target=self.spinClockNode, daemon=True)
@@ -128,7 +133,7 @@ class BipedEnv(gym.Env):
         # self.jacSolver = ChainJntToJacSolver(self.mara_chain)
 
         # Observable dimensions, each joint has 2 (joint position + joint velocity), the IMU gives 6
-        self.obs_dim = self.numJoints * 2 + 6 
+        self.obs_dim = self.numJoints * 2 + 6
 
         # # Here idially we should find the control range of the robot. Unfortunatelly in ROS/KDL there is nothing like this.
         # # I have tested this with the mujoco enviroment and the output is always same low[-1.,-1.], high[1.,1.]
@@ -138,7 +143,7 @@ class BipedEnv(gym.Env):
 
         self.action_space = spaces.Box(low, high)
 
-        high = np.inf*np.ones(self.obs_dim)
+        high = np.inf * np.ones(self.obs_dim)
         low = -high
         self.observation_space = spaces.Box(low, high)
 
@@ -175,9 +180,9 @@ class BipedEnv(gym.Env):
     def get_time_from_time_msg(self, time_msg):
         secStr = str(time_msg.sec)
         nanoSecStr = str(time_msg.nanosec)
-        if(len(nanoSecStr) < 9):
-            lengthDiff = 9-len(nanoSecStr)
-            for i in range(1,lengthDiff):
+        if (len(nanoSecStr) < 9):
+            lengthDiff = 9 - len(nanoSecStr)
+            for i in range(1, lengthDiff):
                 nanoSecStr = "0" + nanoSecStr
         msg_time = int(secStr + nanoSecStr)
         return msg_time
@@ -192,23 +197,24 @@ class BipedEnv(gym.Env):
         obs_message = self._observation_msg
 
         # Check that the observation is not prior to the action
-        if(obs_message != None): 
+        if obs_message is not None:
             msg_time = self.get_time_from_time_msg(obs_message.header.stamp)
         else:
             msg_time = -1
-        
+
         while obs_message is None or msg_time < self.last_action_send_time:
-            if(obs_message is not None):
-                if(msg_time < self.last_action_send_time):
-                    print("observation outdated, msg time: %d, last action send time: %d" %(msg_time, self.last_action_send_time) )
+            if obs_message is not None:
+                if msg_time < self.last_action_send_time:
+                    print("observation outdated, msg time: %d, last action send time: %d" % (
+                        msg_time, self.last_action_send_time))
                     # print("Sec: %d" % self._observation_msg.header.stamp.sec)
                     # print("Nsec: %d" % self._observation_msg.header.stamp.nanosec) 
             # else:
-                # print("I am in obs_message is none")
+            # print("I am in obs_message is none")
             rclpy.spin_once(self.node)
             obs_message = self._observation_msg
 
-            if(obs_message != None): 
+            if obs_message is not None:
                 msg_time = self.get_time_from_time_msg(obs_message.header.stamp)
             else:
                 msg_time = -1
@@ -235,7 +241,7 @@ class BipedEnv(gym.Env):
             - reward
             - done (status)
         """
-        self.iterator+=1
+        self.iterator += 1
         # Execute "action"
         msg = JointControl()
         msg.joints = self.environment['jointOrder']
@@ -285,7 +291,7 @@ class BipedEnv(gym.Env):
             reset_future = self._reset_sim.call_async(Empty.Request())
             print("Resetting simulation")
             rclpy.spin_until_future_complete(self.node, reset_future)
-            
+
             # unpause simulation
             while not self._physics_unpauser.wait_for_service(timeout_sec=1.0):
                 self.node.get_logger().info('/unpause_physics service not available, waiting again...')

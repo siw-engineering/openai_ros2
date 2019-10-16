@@ -4,6 +4,8 @@ import os
 from xml.etree import ElementTree
 from geometry_msgs.msg import Pose
 from gazebo_msgs.srv import SpawnEntity
+
+
 def processObservations(message, agent):
     """
     Helper fuinction to convert a ROS message to joint angles and velocities.
@@ -25,16 +27,18 @@ def processObservations(message, agent):
         state_arr = np.concatenate((pos_arr, vel_arr))
         return state_arr
 
+
 def positionsMatch(action, lastObservation):
     """
     Compares a given action with the observed position.
     Returns: bool. True if the position is final, False if not.
     """
     acceptedError = 0.01
-    for i in range(action.size -1): #lastObservation loses last pose
+    for i in range(action.size - 1):  # lastObservation loses last pose
         if abs(action[i] - lastObservation[i]) > acceptedError:
             return False
     return True
+
 
 def spawn_robot(urdfPath, robotName, node):
     node.get_logger().info('Loading entity XML from file %s' % urdfPath)
@@ -90,7 +94,6 @@ def spawn_robot(urdfPath, robotName, node):
     node.get_logger().error(
         'Service %s/spawn_entity unavailable. Was Gazebo started with GazeboRosFactory?')
     return False
-
 
     # node.get_logger().info('Waiting for service /spawn_entity')
     # client = node.create_client(SpawnEntity, '/spawn_entity')
