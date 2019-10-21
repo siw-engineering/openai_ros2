@@ -1,5 +1,6 @@
 import abc
-from collections import Iterable, Collection, Sequence
+# from collections import Iterable, Collection, Sequence
+from typing import Sequence, Iterable, Tuple
 
 import gym
 import rclpy
@@ -42,7 +43,7 @@ class RobotGazeboEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action: Sequence[float]) -> Iterable[Sequence[float], float, bool, str]:
+    def step(self, action: Sequence[float]) -> Tuple[Sequence[float], float, bool, str]:
         """
         Function executed each time step.
         Here we get the action execute it in a time step and retrieve the

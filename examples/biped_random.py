@@ -6,7 +6,7 @@ for an explanation of this script"""
 import gym
 import time
 import multiprocessing
-import biped_gym
+import openai_ros2
 
 def main(args=None):
     env = gym.make('Biped-v0')

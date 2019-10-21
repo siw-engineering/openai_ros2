@@ -1,7 +1,7 @@
 from parameter_server_interfaces.srv import GetAllJoints
 from parameter_server_interfaces.srv import GetRobots
 from rclpy.qos import qos_profile_services_default
-from collections import Collection
+from typing import Collection
 import rclpy
 
 
@@ -10,7 +10,7 @@ def get_robots(node):
         GetRobots, "/GetRobots", qos_profile=qos_profile_services_default)
     req = GetRobots.Request()
     while not get_robots_client.wait_for_service(timeout_sec=3.0):
-        node.get_logger().info('service not available, waiting again...')
+        node.get_logger().info('Parameter service not available, waiting again...')
 
     future = get_robots_client.call_async(req)
     rclpy.spin_until_future_complete(node, future)
@@ -28,7 +28,7 @@ def get_joints(node, robot_name) -> Collection[float]:
     req = GetAllJoints.Request()
     req.robot = robot_name
     while not get_joints_client.wait_for_service(timeout_sec=3.0):
-        node.get_logger().info('service not available, waiting again...')
+        node.get_logger().info('Parameter service not available, waiting again...')
 
     future = get_joints_client.call_async(req)
     rclpy.spin_until_future_complete(node, future)

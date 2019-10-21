@@ -1,0 +1,1 @@
+from openai_ros2.envs.task_envs.lobot_arm.arm_move_simple import LobotArmMoveSimpleEnv

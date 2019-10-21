@@ -5,7 +5,7 @@ package_name = 'openai_ros2'
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[package_name, 'examples'],
+    packages=[package_name, 'examples', 'openai_ros2/envs', 'openai_ros2/envs/robot_envs', 'openai_ros2/envs/task_envs/lobot_arm', 'openai_ros2/utils'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
