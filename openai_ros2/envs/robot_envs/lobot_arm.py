@@ -26,27 +26,25 @@ class LobotArmEnv(RobotGazeboEnv):
                                                               self._joint_state_subscription_callback,
                                                               qos_profile_sensor_data)
         self._tf_buffer = Buffer()
-        self._tf_listener = TransformListener(self._tf_buffer, self.node)
         self.gazebo.pause_sim()
+        self._tf_listener = TransformListener(self._tf_buffer, self.node)
         self._latest_joint_state_msg = None
 
     def reset(self) -> None:
-        super().reset()
+        super(RobotGazeboEnv, self).reset()
         self._latest_joint_state_msg = None
         self._tf_buffer.clear()
 
     def _joint_state_subscription_callback(self, message: JointState) -> None:
         self._latest_joint_state_msg = message
-        print("Joint state message received")
+        # print("Joint state message received")
 
     def _reset_controller(self) -> None:
         while not self._robot_resetter.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('/' + self.robot_name + '/reset service not available, waiting again...')
         reset_robot_future = self._robot_resetter.call_async(Empty.Request())
-        while not reset_robot_future.done():
-            time.sleep(0.01)
         print("Resetting controller to initial positions")
-        # rclpy.spin_until_future_complete(self.node, reset_robot_future)
+        rclpy.spin_until_future_complete(self.node, reset_robot_future)
 
     @abc.abstractmethod
     def close(self) -> None:

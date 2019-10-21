@@ -42,8 +42,8 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         self.cumulated_reward = 0.0
         # The target coords is currently arbitrarily set to some point achievable
         self.target_coords = numpy.array([-0.098, -0.022, 0.078])
-        self.previous_coords = numpy.array([0, 0, 0])
-        self.current_coords = numpy.array([0, 0, 0])
+        self.previous_coords = numpy.array([0, 0, 0, 0, 0])
+        self.current_coords = numpy.array([0, 0, 0, 0, 0])
 
         # Get forward kinematics service
         self._fk_service = self.node.create_client(ForwardKinematics, "ArmForwardKine")
@@ -54,6 +54,10 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
     '''
     Function overrides
     '''
+
+    def reset(self) -> None:
+        super(LobotArmEnv, self).reset()
+        self.cumulated_steps = 0
 
     def close(self) -> None:
         raise NotImplementedError("Gazebo not launched from this environment, so has no control over the processes")
@@ -69,17 +73,24 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         message: JointState = self._latest_joint_state_msg
         if not isinstance(message, JointState):
             print(f"Latest joint state message wrong type")
+            return []
         if message is None:
             print(f"Latest joint state message is None")
+            return []
 
-        if message is not None and isinstance(message, JointState):
-            # message: JointState = self._latest_joint_state_msg
-            pos_arr = numpy.array(message.position)
-            vel_arr = numpy.array(message.velocity)
-            state_arr = numpy.concatenate((pos_arr, vel_arr))
+        pos_arr = numpy.array(message.position)
+        vel_arr = numpy.array(message.velocity)
+        state_arr = numpy.concatenate((pos_arr, vel_arr))
 
-            self.current_coords = self.__get_coords2(message)
-            return state_arr
+        # self.current_coords = self.__get_coords()
+        self.current_coords = self.__get_coords2(message)
+        # print(f"coords x diff: {self.current_coords[0] - current_coords2[0]}")
+        # print(f"coords y diff: {self.current_coords[1] - current_coords2[1]}")
+        # print(f"coords z diff: {self.current_coords[2] - current_coords2[2]}")
+        # timeDiff = (self.current_coords[3] - message.header.stamp.sec) * 1000000000 + self.current_coords[
+        #     4] - message.header.stamp.nanosec
+        # print(f"Time diff: {timeDiff / 1000000}ms")
+        return state_arr
 
     def _get_info(self) -> str:
         return ""
@@ -116,9 +127,10 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         else:
             reward = -1*self.end_episode_points'''
         reward = self.__calc_dist_change(self.previous_coords, self.current_coords)
-        self.cumulated_reward += reward
+        self.previous_coords = self.current_coords
+        self.cumulated_episode_reward += reward
         self.cumulated_steps += 1
-        print(f"Reward for step {self.cumulated_steps}: {reward},\t cumulated reward: {self.cumulated_reward}")
+        print(f"Reward for step {self.cumulated_steps}: {reward},\t cumulated reward: {self.cumulated_episode_reward}")
 
         return reward
 
@@ -132,7 +144,7 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         :param time_msg: defaults no None, if None then get latest coords
         :return:
         """
-        from_frame = 'grip_link_3'
+        from_frame = 'arm_3_link'
         to_frame = 'world'
         # When time is set to 0 it will get the latest transform
         if time_msg is None:
@@ -156,8 +168,10 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         x = translation.x
         y = translation.y
         z = translation.z
+        sec = current_pos.header.stamp.sec
+        nsec = current_pos.header.stamp.nanosec
         print(f'get coords called with coords: [{x}, {y}, {z}]')
-        return [x, y, z]
+        return [x, y, z, sec, nsec]
 
     def __get_coords2(self, joint_state_msg: JointState = None) -> Sequence[float]:
         req = ForwardKinematics.Request()

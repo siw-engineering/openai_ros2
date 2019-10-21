@@ -7,7 +7,6 @@ class GazeboConnection:
 
     def __init__(self, node):
         self.node = node
-        rclpy.init()
         self._reset_sim = self.node.create_client(Empty, '/reset_simulation')
         self._physics_pause_client = self.node.create_client(Empty, '/pause_physics')
         self._physics_unpause_client = self.node.create_client(Empty, '/unpause_physics')

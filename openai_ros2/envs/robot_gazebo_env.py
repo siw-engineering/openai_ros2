@@ -68,6 +68,8 @@ class RobotGazeboEnv(gym.Env):
         return obs, reward, done, info
 
     def reset(self) -> None:
+        self.episode_num += 1
+        self.cumulated_episode_reward = 0
         self._reset_sim()
         self._update_episode()
 
@@ -97,6 +99,7 @@ class RobotGazeboEnv(gym.Env):
         #     self.cumulated_episode_reward,
         #     self.episode_num
         # )
+        print(f"Episode {self.episode_num} concluded with total reward of: {self.cumulated_episode_reward}")
         self.episode_num += 1
         self.cumulated_episode_reward = 0
 
