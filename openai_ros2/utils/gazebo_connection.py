@@ -1,12 +1,13 @@
 from std_srvs.srv import Empty
 from gazebo_msgs.srv import DeleteEntity
 import rclpy
-
+from rclpy.parameter import Parameter
 
 class GazeboConnection:
 
     def __init__(self, node):
         self.node = node
+        self.node.set_parameters([Parameter('use_sim_time', Parameter.Type.BOOL, True)])
         self._reset_sim = self.node.create_client(Empty, '/reset_simulation')
         self._physics_pause_client = self.node.create_client(Empty, '/pause_physics')
         self._physics_unpause_client = self.node.create_client(Empty, '/unpause_physics')
@@ -17,20 +18,20 @@ class GazeboConnection:
             self.node.get_logger().info('/pause_physics service not available, waiting again...')
         pause_future = self._physics_pause_client.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self.node, pause_future)
-        print("Pausing simulation")
+        # print("Pausing simulation")
 
     def unpause_sim(self) -> None:
         while not self._physics_unpause_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('/unpause_physics service not available, waiting again...')
         unpause_future = self._physics_unpause_client.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self.node, unpause_future)
-        print("Unpausing simulation")
+        # print("Unpausing simulation")
 
     def reset_sim(self) -> None:
         while not self._reset_sim.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('/reset_simulation service not available, waiting again...')
         reset_future = self._reset_sim.call_async(Empty.Request())
-        print("Resetting simulation")
+        # print("Resetting simulation")
         rclpy.spin_until_future_complete(self.node, reset_future)
 
     def delete_entity(self, entity_name: str) -> bool:

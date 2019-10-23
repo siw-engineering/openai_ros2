@@ -3,16 +3,16 @@ from typing import Sequence
 
 import rclpy
 from rclpy.parameter import Parameter
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import qos_profile_parameters
 from sensor_msgs.msg import JointState
 from std_srvs.srv import Empty
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
 
 from openai_ros2.envs.robot_gazebo_env import RobotGazeboEnv
+from openai_ros2.utils import ut_param_server
 from openai_ros2.utils.lobot_arm_helper import LobotArmHelper
 import threading
 import time
+from rclpy.time import Time as rclpyTime
 
 
 class LobotArmEnv(RobotGazeboEnv):
@@ -24,19 +24,25 @@ class LobotArmEnv(RobotGazeboEnv):
 
         self._joint_state_sub = self.node.create_subscription(JointState, "/joint_states",
                                                               self._joint_state_subscription_callback,
-                                                              qos_profile_sensor_data)
-        self._tf_buffer = Buffer()
+                                                              qos_profile=qos_profile_parameters)
         self.gazebo.pause_sim()
-        self._tf_listener = TransformListener(self._tf_buffer, self.node)
         self._latest_joint_state_msg = None
+
+        # Set update period and related variables
+        self._time_lock = threading.Lock()
+        self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
+        self.node.get_logger().info(f"Gym update period set to {self._update_period_ns}ns")
+        self._previous_update_sim_time: rclpyTime = rclpyTime()
+        self._current_sim_time: rclpyTime = rclpyTime()
 
     def reset(self) -> None:
         super(RobotGazeboEnv, self).reset()
         self._latest_joint_state_msg = None
-        self._tf_buffer.clear()
 
     def _joint_state_subscription_callback(self, message: JointState) -> None:
         self._latest_joint_state_msg = message
+        with self._time_lock:
+            self._current_sim_time = rclpyTime(seconds=message.header.stamp.sec, nanoseconds=message.header.stamp.nanosec)
         # print("Joint state message received")
 
     def _reset_controller(self) -> None:

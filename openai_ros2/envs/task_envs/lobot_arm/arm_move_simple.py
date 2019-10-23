@@ -2,14 +2,15 @@ from typing import Sequence
 
 import numpy
 import rclpy
+import copy
 from gym import spaces
 from rclpy.qos import qos_profile_sensor_data
+from rclpy.time import Time as rclpyTime
 from ros2_control_interfaces.msg import JointControl
 from sensor_msgs.msg import JointState
 
 from openai_ros2.envs.robot_envs.lobot_arm import LobotArmEnv
 from openai_ros2.utils import ut_param_server
-import tf2_ros
 from builtin_interfaces.msg import Time
 from rclpy.duration import Duration
 from arm_fk_cpp.srv import ForwardKinematics
@@ -35,15 +36,10 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         # Get the joint names from parameter server
         self._joint_names = ut_param_server.get_joints(self.node, self.robot_name)
 
-        # Here we will add any init functions prior to starting the MyRobotEnv
-
-        # Rewards
-        self.cumulated_steps = 0.0
-        self.cumulated_reward = 0.0
         # The target coords is currently arbitrarily set to some point achievable
         self.target_coords = numpy.array([-0.098, -0.022, 0.078])
-        self.previous_coords = numpy.array([0, 0, 0, 0, 0])
-        self.current_coords = numpy.array([0, 0, 0, 0, 0])
+        self.previous_coords = numpy.array([0, 0, 0])
+        self.current_coords = numpy.array([0, 0, 0])
 
         # Get forward kinematics service
         self._fk_service = self.node.create_client(ForwardKinematics, "ArmForwardKine")
@@ -57,7 +53,6 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
 
     def reset(self) -> None:
         super(LobotArmEnv, self).reset()
-        self.cumulated_steps = 0
 
     def close(self) -> None:
         raise NotImplementedError("Gazebo not launched from this environment, so has no control over the processes")
@@ -82,14 +77,7 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
         vel_arr = numpy.array(message.velocity)
         state_arr = numpy.concatenate((pos_arr, vel_arr))
 
-        # self.current_coords = self.__get_coords()
-        self.current_coords = self.__get_coords2(message)
-        # print(f"coords x diff: {self.current_coords[0] - current_coords2[0]}")
-        # print(f"coords y diff: {self.current_coords[1] - current_coords2[1]}")
-        # print(f"coords z diff: {self.current_coords[2] - current_coords2[2]}")
-        # timeDiff = (self.current_coords[3] - message.header.stamp.sec) * 1000000000 + self.current_coords[
-        #     4] - message.header.stamp.nanosec
-        # print(f"Time diff: {timeDiff / 1000000}ms")
+        self.current_coords = self.__get_coords(message)
         return state_arr
 
     def _get_info(self) -> str:
@@ -106,8 +94,34 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
             return
         msg.joints = self._joint_names
         msg.goals = action.tolist()
+        msg.header.stamp = self._current_sim_time.to_msg()
         self._control_pub.publish(msg)
+        self.gazebo.unpause_sim()
 
+        # TODO: use system clock to create a timeout in case the sim time never reaches the desired value
+        # Unsure if lock is necessary, but did it for correctness and no time to test
+        # Deep copy would be ideal but it wouldn't work, so i used shallow copy instead which is still more correct than
+        # assignment operator
+        # Also i wish there is do while in python because i don't need to copy the time diff code
+        with self._time_lock:
+            current_sim_time = copy.copy(self._current_sim_time)
+        time_diff_ns = current_sim_time.nanoseconds - self._previous_update_sim_time.nanoseconds
+        if time_diff_ns < 0:
+            print("Negative time difference detected, probably due to a reset")
+            self._previous_update_sim_time = rclpyTime()
+            time_diff_ns = current_sim_time.nanoseconds
+        while time_diff_ns < self._update_period_ns:
+            # spinning the node will cause self._current_sim_time to be updated
+            rclpy.spin_once(self.node)
+            with self._time_lock:
+                current_sim_time = copy.copy(self._current_sim_time)
+            time_diff_ns = current_sim_time.nanoseconds - self._previous_update_sim_time.nanoseconds
+            if time_diff_ns < 0:
+                print("Negative time difference detected, probably due to a reset")
+                self._previous_update_sim_time = rclpyTime()
+                time_diff_ns = current_sim_time.nanoseconds
+
+        self._previous_update_sim_time = current_sim_time
         return True
 
     # This probably requires some other interface to be exposed by gazebo for collision checking,
@@ -119,18 +133,8 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
 
     def _compute_reward(self, observations, done):
 
-        '''if not done:
-            if self.last_action == "FORWARDS":
-                reward = self.forwards_reward
-            else:
-                reward = self.turn_reward
-        else:
-            reward = -1*self.end_episode_points'''
         reward = self.__calc_dist_change(self.previous_coords, self.current_coords)
         self.previous_coords = self.current_coords
-        self.cumulated_episode_reward += reward
-        self.cumulated_steps += 1
-        print(f"Reward for step {self.cumulated_steps}: {reward},\t cumulated reward: {self.cumulated_episode_reward}")
 
         return reward
 
@@ -138,49 +142,14 @@ class LobotArmMoveSimpleEnv(LobotArmEnv):
     Function override end
     '''
 
-    def __get_coords(self, time_msg: Time = None) -> Sequence[float]:
-        """
-        Gets the coordinates of the end effector from the TF buffer
-        :param time_msg: defaults no None, if None then get latest coords
-        :return:
-        """
-        from_frame = 'arm_3_link'
-        to_frame = 'world'
-        # When time is set to 0 it will get the latest transform
-        if time_msg is None:
-            # This should get time = 0
-            tf2_time = rclpy.time.Time()
-        else:
-            time_nsec = time_msg.sec * 1000000000 + time_msg.nanosec
-            tf2_time = tf2_ros.Time(nanoseconds=time_nsec)
-        current_pos = None
-        try:
-            current_pos = self._tf_buffer.lookup_transform(to_frame, from_frame, tf2_time,
-                                                           timeout=Duration(nanoseconds=1000000000))
-        except Exception as e:
-            self.node.get_logger().warn('failed to get transform {}'.format(repr(e)))
-
-        # if fail to get coords, fallback to the previous coordinates data
-        if current_pos is None:
-            return self.previous_coords
-
-        translation = current_pos.transform.translation
-        x = translation.x
-        y = translation.y
-        z = translation.z
-        sec = current_pos.header.stamp.sec
-        nsec = current_pos.header.stamp.nanosec
-        print(f'get coords called with coords: [{x}, {y}, {z}]')
-        return [x, y, z, sec, nsec]
-
-    def __get_coords2(self, joint_state_msg: JointState = None) -> Sequence[float]:
+    def __get_coords(self, joint_state_msg: JointState = None) -> Sequence[float]:
         req = ForwardKinematics.Request()
         req.joint_states = joint_state_msg.position.tolist()
         future = self._fk_service.call_async(req)
         rclpy.spin_until_future_complete(self.node, future)
         if future.result() is not None:
             fk_response: ForwardKinematics.Response = future.result()
-            self.node.get_logger().info(f'FK successful: {fk_response.success}')
+            # self.node.get_logger().info(f'FK successful: {fk_response.success}')
             if fk_response.success:
                 return [fk_response.x, fk_response.y, fk_response.z]
             else:

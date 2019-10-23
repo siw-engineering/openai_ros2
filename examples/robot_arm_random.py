@@ -12,21 +12,22 @@ import rclpy
 env: LobotArmMoveSimpleEnv = gym.make('LobotArmMoveSimple-v0')
 
 
-def sleep(sec_input: float):
-    current_time_a = time.time()
-    while time.time() - sec_input < current_time_a:
-        rclpy.spin_once(env.node)
+# def sleep(sec_input: float):
+#     current_time_a = time.time()
+#     while time.time() - sec_input < current_time_a:
+#         rclpy.spin_once(env.node)
 
 
 rclpy.spin_once(env.node)
 env.reset()
 while True:
-    for x in range(50):
+    print("-------------Starting----------------")
+    for x in range(300):
         observation, reward, done, info = env.step(env.action_space.sample())
         current_time = time.time()
-        sleep(0.1)
-    sleep(1.0)
+        # sleep(0.1)
+    # sleep(1.0)
     print("-------------Resetting environment---------------")
     env.reset()
     print("-------------Reset finished----------------")
-    sleep(2.0)
+    time.sleep(2.0)

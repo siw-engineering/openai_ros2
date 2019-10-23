@@ -33,6 +33,7 @@ class RobotGazeboEnv(gym.Env):
         # Set up ROS related variables
         self.episode_num = 0
         self.cumulated_episode_reward = 0
+        self.step_num = 0
         # self.reward_pub = rospy.Publisher('/openai/reward', RLExperimentInfo, queue_size=1)
 
         # Launch relevant subprocesses (using ros2 launch)
@@ -64,14 +65,16 @@ class RobotGazeboEnv(gym.Env):
         info = self._get_info()
         reward = self._compute_reward(obs, done)
         self.cumulated_episode_reward += reward
-
+        self.step_num += 1
+        print(f"Reward for step {self.step_num}: {reward},\t cumulated reward: {self.cumulated_episode_reward}")
         return obs, reward, done, info
 
     def reset(self) -> None:
+        self._update_episode()
         self.episode_num += 1
         self.cumulated_episode_reward = 0
+        self.step_num = 0
         self._reset_sim()
-        self._update_episode()
 
     @abc.abstractmethod
     def close(self) -> None:
@@ -131,7 +134,6 @@ class RobotGazeboEnv(gym.Env):
         self.gazebo.pause_sim()
         self.gazebo.reset_sim()
         self._reset_controller()
-        self.gazebo.unpause_sim()
 
     @abc.abstractmethod
     def _set_action(self, action: Sequence[float]) -> None:
