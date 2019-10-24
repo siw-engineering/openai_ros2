@@ -6,8 +6,7 @@ from rclpy.node import Node
 
 
 def get_robots(node: Node):
-    get_robots_client = node.create_client(
-        GetRobots, "/GetRobots", qos_profile=qos_profile_services_default)
+    get_robots_client = node.create_client(GetRobots, "/GetRobots")
     req = GetRobots.Request()
     while not get_robots_client.wait_for_service(timeout_sec=3.0):
         node.get_logger().info('Parameter service not available, waiting again...')
@@ -23,8 +22,7 @@ def get_robots(node: Node):
 
 
 def get_joints(node: Node, robot_name: str) -> Collection[float]:
-    get_joints_client = node.create_client(
-        GetAllJoints, "/GetAllControlJoints", qos_profile=qos_profile_services_default)
+    get_joints_client = node.create_client(GetAllJoints, "/GetAllControlJoints")
     req = GetAllJoints.Request()
     req.robot = robot_name
     while not get_joints_client.wait_for_service(timeout_sec=3.0):
