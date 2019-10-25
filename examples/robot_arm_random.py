@@ -11,16 +11,18 @@ from openai_ros2.envs import LobotArmMoveSimpleEnv
 from openai_ros2.robots import LobotArmSim
 import rclpy
 import random
+from gym.spaces import MultiDiscrete
+from typing import Type
 
 env: LobotArmMoveSimpleEnv = gym.make('LobotArmMoveSimple-v0')
-
+action_space: Type[MultiDiscrete] = env.action_space
 rclpy.spin_once(env.node)
 env.reset()
 while True:
     print("-------------Starting----------------")
     for x in range(500):
         # action = numpy.array([1.00, -1.01, 1.01])
-        action = [random.choice(list(LobotArmSim.Action)) for _ in range(3)]
+        action = action_space.sample()
         observation, reward, done, info = env.step(action)
         # Type hints
         observation: LobotArmMoveSimpleEnv.ObservationData

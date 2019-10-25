@@ -17,11 +17,20 @@ import time
 
 class LobotArmSim:
     class Action(Enum):
-        BigPositive = 0.02
-        SmallPositive = 0.005
-        Remain = 0
-        SmallNegative = -0.005
-        BigNegative = -0.02
+        BigPositive = 0, 0.02
+        SmallPositive = 1, 0.005
+        Remain = 2, 0
+        SmallNegative = 3, -0.005
+        BigNegative = 4, -0.02
+
+        def __new__(cls, value, corresponding_value):
+            member = object.__new__(cls)
+            member._value_ = value
+            member.corresponding_value = corresponding_value
+            return member
+
+        def __int__(self):
+            return self.value
 
     '''-------------PUBLIC METHODS START-------------'''
 
@@ -49,7 +58,7 @@ class LobotArmSim:
         self.__gazebo = GazeboConnection(self.node)
         self.__time_lock = threading.Lock()
 
-    def set_action(self, action: Sequence[Action]) -> None:
+    def set_action(self, action: numpy.ndarray) -> None:
         """
         Sets the action, unpauses the simulation and then waits until the update period of openai gym is over.
         The simulation is also expected to pause at the same time.
@@ -58,10 +67,11 @@ class LobotArmSim:
         :param action:
         :return: obs, reward, done, info
         """
-        if len(action) != 3:
-            print(f"{len(action)} actions passed to LobotArmSim, expected: 3")
+        assert len(action) == 3, f"{len(action)} actions passed to LobotArmSim, expected: 3"
+        assert action.max() <= 4, "Max of action space more than 4"
+        assert action.min() >= 0, "Min of action space less than 0"
 
-        action_values = [x.value for x in action]
+        action_values = [LobotArmSim.Action(x).corresponding_value for x in action]
         self.__target_joint_state += action_values
 
         msg = JointControl()

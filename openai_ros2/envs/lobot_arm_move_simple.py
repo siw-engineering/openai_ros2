@@ -1,4 +1,5 @@
 import gym
+from gym.spaces import MultiDiscrete
 import rclpy
 import random
 import numpy
@@ -16,6 +17,8 @@ class LobotArmMoveSimpleEnv(gym.Env):
     def __init__(self):
         rclpy.init()
         self.node = rclpy.create_node(self.__class__.__name__)
+        possible_action_count = len(LobotArmSim.Action)
+        self.action_space = MultiDiscrete([possible_action_count, possible_action_count, possible_action_count])
         self.__robot = LobotArmSim(self.node)
         self.__task = LobotArmBasicMovement(self.node)
         # Set up ROS related variables
@@ -23,7 +26,7 @@ class LobotArmMoveSimpleEnv(gym.Env):
         self.__cumulated_episode_reward = 0
         self.__step_num = 0
 
-    def step(self, action: Sequence[LobotArmSim.Action]) -> Tuple[ObservationData, float, bool, str]:
+    def step(self, action: numpy.ndarray) -> Tuple[ObservationData, float, bool, str]:
         self.__robot.set_action(action)
         robot_state = self.__robot.get_observations()
         obs = LobotArmMoveSimpleEnv.ObservationData()
