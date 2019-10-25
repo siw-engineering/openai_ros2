@@ -25,7 +25,7 @@ rclpy.spin_once(env.node)
 env.reset()
 while True:
     print("-------------Starting----------------")
-    for x in range(3000):
+    for x in range(500):
         # action = numpy.array([1.00, -1.01, 1.01])
         action = [random.choice(list(LobotArmSim.Action)) for _ in range(3)]
         observation, reward, done, info = env.step(action)

@@ -77,6 +77,7 @@ class LobotArmSim:
         self.__gazebo.pause_sim()
         self.__gazebo.reset_sim()
         self.__reset_controller()
+        self.__reset_state()
         # No unpause here because it is assumed that the set_action will unpause it
 
     def get_observations(self) -> numpy.ndarray:
@@ -106,6 +107,13 @@ class LobotArmSim:
         reset_robot_future = reset_client.call_async(Empty.Request())
         print("Resetting controller to initial positions")
         rclpy.spin_until_future_complete(self.node, reset_robot_future)
+
+    def __reset_state(self) -> None:
+        self.__latest_joint_state_msg = None
+        self.__target_joint_state = numpy.array([0.0, 0.0, 0.0])
+
+        self.__previous_update_sim_time = rclpyTime()
+        self.__current_sim_time = rclpyTime()
 
     def __joint_state_subscription_callback(self, message: JointState) -> None:
         self.__latest_joint_state_msg = message
