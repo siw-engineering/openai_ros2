@@ -1,12 +1,18 @@
 import gym
 import rclpy
 import random
-from typing import Sequence, Tuple
+import numpy
+from typing import Sequence, Tuple, Type
 from openai_ros2.robots.lobot.lobot_arm_sim import LobotArmSim
 from openai_ros2.robots.lobot.tasks.basic_movement import LobotArmBasicMovement
 
 
 class LobotArmMoveSimpleEnv(gym.Env):
+    class ObservationData:
+        position_data: numpy.ndarray = numpy.array([])
+        velocity_data: numpy.ndarray = numpy.array([])
+        step_count: int = 0
+
     def __init__(self):
         rclpy.init()
         self.node = rclpy.create_node(self.__class__.__name__)
@@ -17,12 +23,15 @@ class LobotArmMoveSimpleEnv(gym.Env):
         self.__cumulated_episode_reward = 0
         self.__step_num = 0
 
-    def step(self, action: Sequence[LobotArmSim.Action]) -> Tuple[Sequence[float], float, bool, str]:
+    def step(self, action: Sequence[LobotArmSim.Action]) -> Tuple[ObservationData, float, bool, str]:
         self.__robot.set_action(action)
-        obs = self.__robot.get_observations()
-        joint_states = obs[0:3]
-        reward = self.__task.compute_reward(joint_states, self.__step_num)
-        done = self.__task.is_done(obs, self.__step_num)
+        robot_state = self.__robot.get_observations()
+        obs = LobotArmMoveSimpleEnv.ObservationData()
+        obs.step_count = self.__step_num
+        obs.position_data = robot_state[0:3]
+        obs.velocity_data = robot_state[-3:]
+        reward = self.__task.compute_reward(obs.position_data, self.__step_num)
+        done = self.__task.is_done(obs.position_data, self.__step_num)
         info = ""
         self.__cumulated_episode_reward += reward
         self.__step_num += 1

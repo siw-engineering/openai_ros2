@@ -4,7 +4,7 @@ from openai_ros2.utils import ut_param_server
 from std_srvs.srv import Empty
 from sensor_msgs.msg import JointState
 import numpy
-from typing import Sequence
+from typing import Sequence, Type
 from enum import Enum
 from ros2_control_interfaces.msg import JointControl
 from ros2_control_interfaces.srv import GetCurrentSimTime
