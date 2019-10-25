@@ -42,6 +42,7 @@ class LobotArmMoveSimpleEnv(gym.Env):
     def reset(self):
         print(f"Episode {self.__episode_num} concluded with total reward of: {self.__cumulated_episode_reward}")
         self.__robot.reset()
+        self.__task.reset()
         self.__step_num = 0
         self.__episode_num += 1
         self.__cumulated_episode_reward = 0

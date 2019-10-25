@@ -41,6 +41,7 @@ class LobotArmBasicMovement:
 
         # Give 0 reward on initial state
         if numpy.array_equal(self.previous_coords, numpy.array([0.0, 0.0, 0.0])):
+            print("Initial state detected, giving 0 reward")
             reward = 0
         else:
             reward = self.__calc_dist_change(self.previous_coords, current_coords)
@@ -49,6 +50,9 @@ class LobotArmBasicMovement:
         # Apply time decay to reward, also scale up reward so that it is not so small
         reward = reward * 100 * math.exp(-0.005*time_step)
         return reward
+
+    def reset(self):
+        self.previous_coords = numpy.array([0.0, 0.0, 0.0])
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:
@@ -76,3 +80,4 @@ class LobotArmBasicMovement:
                 return numpy.array([])
         else:
             self.node.get_logger().info('Service call failed %r' % (future.exception(),))
+
