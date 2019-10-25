@@ -1,11 +1,11 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 package_name = 'openai_ros2'
 
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[package_name, 'examples', 'openai_ros2/envs', 'openai_ros2/envs/robot_envs', 'openai_ros2/envs/task_envs/lobot_arm', 'openai_ros2/utils', 'openai_ros2/robots', 'openai_ros2/robots/lobot', 'openai_ros2/robots/lobot/tasks'],
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
