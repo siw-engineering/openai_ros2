@@ -6,14 +6,26 @@ cd ~/gym
 pip3 install -e .
 ```
 
-## 2. Install this environment
+## 2. Install the biped_ros2 repository
+See installation instructions [here](https://github.com/siw-engineering/biped_ros2)
+
+
+## 3a. Run the example script (robot arm)
+In terminal #1, launch the simulation. 
 ```
-git clone https://github.com/pohzhiee/biped_gym.git ~/biped_gym
-cd ~/biped_gym
-pip3 install -e .
+rosbiped
+ros2 launch arm_simulation gym_launch_all.launch.py
+```
+In terminal #2, run the script
+```
+rosbiped
+cd ~/biped_ros2/src/openai_ros2/examples
+python3 robot_arm_random.py
 ```
 
-## 3a. Run the example script (biped)
+## 3b. Run the example script (biped)
+Note: This has not been checked for a while, may or may not work.
+
 In terminal #1, launch the simulation. 
 ```
 rosbiped
@@ -25,17 +37,6 @@ cd ~/biped_gym/examples
 python3 biped_random.py
 ```
 
-## 3b. Run the example script (robot arm)
-In terminal #1, launch the simulation. 
-```
-rosbiped
-ros2 launch arm_simulation launch_all.launch.py
-```
-In terminal #2, run the script
-```
-cd ~/biped_gym/examples
-python3 robot_arm_random.py
-```
 
 #### Notes
 1. You can use multi-tabbed terminals to run the script for easier management, using tab 1 to run the simulation and tab 2 to run the script
@@ -47,11 +48,6 @@ python3 robot_arm_random.py
 The python debugger will simply not work when launching other processes as part of the python script, and so we try to make
 the environment 1 process for now.
 Definitely needs to be changed in the future, not sure when.
-
-3. There is currently a bug where the controllers and the robot plugins do not discover each other quickly enough.
-This causes the robot to seem like it is not controlled when it is spawned. You might need to wait for some time before 
-they discover each other and the robot move into a fixed position. This bug is partially beyond our control as some of it
-has to do with the discovery mechanism of the ROS publisher/subscribers.
 
 ## 4. Create your own agents!
 
