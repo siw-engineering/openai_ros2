@@ -2,6 +2,7 @@ import numpy
 import rclpy
 import math
 from arm_fk_cpp.srv import ForwardKinematics
+from openai_ros2.utils import forward_kinematics_py as fk
 
 
 class LobotArmBasicMovement:
@@ -19,7 +20,7 @@ class LobotArmBasicMovement:
         self.target_coords = numpy.array([0.026975, -0.007283, 0.132731])
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.__max_time_step = max_time_step
-        self.__fk_service = self.node.create_client(ForwardKinematics, "ArmForwardKine")
+        self.__fk = fk.ForwardKinematics('/home/pohzhiee/biped_ros2/src/lobot_description_ros2/robots/arm_standalone.urdf')
 
     def is_done(self, observations: numpy.ndarray, time_step: int = -1) -> bool:
         # I think if it is colliding we can consider the episode done, no need for heavy penalty
@@ -67,17 +68,20 @@ class LobotArmBasicMovement:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
             return numpy.array([])
 
-        req = ForwardKinematics.Request()
-        req.joint_states = joint_states.tolist()
-        future = self.__fk_service.call_async(req)
-        rclpy.spin_until_future_complete(self.node, future)
-        if future.result() is not None:
-            fk_response: ForwardKinematics.Response = future.result()
-            # self.node.get_logger().info(f'FK successful: {fk_response.success}')
-            if fk_response.success:
-                return numpy.array([fk_response.x, fk_response.y, fk_response.z])
-            else:
-                return numpy.array([])
-        else:
-            self.node.get_logger().info('Service call failed %r' % (future.exception(),))
+        # req = ForwardKinematics.Request()
+        # req.joint_states = joint_states.tolist()
+
+        res = self.__fk.calculate('world', 'arm_3_link', joint_states)
+        return numpy.array([res.translation.x, res.translation.y, res.translation.z])
+        # future = self.__fk_service.call_async(req)
+        # rclpy.spin_until_future_complete(self.node, future)
+        # if future.result() is not None:
+        #     fk_response: ForwardKinematics.Response = future.result()
+        #     # self.node.get_logger().info(f'FK successful: {fk_response.success}')
+        #     if fk_response.success:
+        #         return numpy.array([fk_response.x, fk_response.y, fk_response.z])
+        #     else:
+        #         return numpy.array([])
+        # else:
+        #     self.node.get_logger().info('Service call failed %r' % (future.exception(),))
 
