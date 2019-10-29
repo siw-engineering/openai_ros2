@@ -11,6 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
+    package_data={'': ['forward_kinematics_py.so']},
     install_requires=['setuptools', 'gym', 'billiard', 'numpy'],
     zip_safe=True,
     author='Poh Zhi-Ee',
