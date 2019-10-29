@@ -23,21 +23,6 @@ cd ~/biped_ros2/src/openai_ros2/examples
 python3 robot_arm_random.py
 ```
 
-## 3b. Run the example script (biped)
-Note: This has not been checked for a while, may or may not work.
-
-In terminal #1, launch the simulation. 
-```
-rosbiped
-ros2 launch lobot_simulation launch_all.launch.py
-```
-In terminal #2, run the script
-```
-cd ~/biped_gym/examples
-python3 biped_random.py
-```
-
-
 #### Notes
 1. You can use multi-tabbed terminals to run the script for easier management, using tab 1 to run the simulation and tab 2 to run the script
   - Ctrl + Alt + T to launch a terminal
@@ -52,6 +37,6 @@ Definitely needs to be changed in the future, not sure when.
 ## 4. Create your own agents!
 
 # Other Notes
-1. If your python package happen to be part of a `colcon build` directory 
-somehow the links made during the `pip3 install -e` will break every time you run colcon install.
-So try to avoid putting python packages that needs to be installed to pip into a directory affected by `colcon build`
+This package is integrated as part of the `colcon build` process. This means as long as you source
+the `install/setup.bash` you will be able to import this package and the relevant utilities
+provided by this package. As such, no need to run `pip install -e .` or similar commands.
