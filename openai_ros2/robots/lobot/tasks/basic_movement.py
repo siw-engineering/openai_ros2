@@ -1,8 +1,8 @@
 import numpy
-import rclpy
 import math
-from arm_fk_cpp.srv import ForwardKinematics
 from openai_ros2.utils import forward_kinematics_py as fk
+from ament_index_python.packages import get_package_share_directory
+import os
 
 
 class LobotArmBasicMovement:
@@ -20,15 +20,29 @@ class LobotArmBasicMovement:
         self.target_coords = numpy.array([0.026975, -0.007283, 0.132731])
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.__max_time_step = max_time_step
-        self.__fk = fk.ForwardKinematics('/home/pohzhiee/biped_ros2/src/lobot_description_ros2/robots/arm_standalone.urdf')
+        lobot_desc_share_path = get_package_share_directory('lobot_description')
+        arm_urdf_path = os.path.join(lobot_desc_share_path, "robots/arm_standalone.urdf")
+        self.__fk = fk.ForwardKinematics(arm_urdf_path)
 
-    def is_done(self, observations: numpy.ndarray, time_step: int = -1) -> bool:
-        # I think if it is colliding we can consider the episode done, no need for heavy penalty
-        # So check for collision here
-        if time_step >= self.__max_time_step:
+    def is_done(self, joint_states: numpy.ndarray, contact_count: int, time_step: int = -1) -> bool:
+        # If there is any contact (collision), we consider the episode done
+        if contact_count > 0:
             return True
-        else:
-            return False
+
+        current_coords = self.__get_coords(joint_states)
+        acceptedError = 0.01
+
+        # Highest done priority is if time step exceeds limit, so we check this first
+        if time_step > self.__max_time_step:
+            return True
+
+        # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
+        for i in range(3):
+            if abs(self.target_coords[i] - current_coords[i]) > acceptedError:
+                return False
+        # If all coordinates within acceptance range AND time step within limits, we are done
+        print(f"Reached destination, target coords: {self.target_coords}, current coords: {current_coords}")
+        return True
 
     def compute_reward(self, joint_states: numpy.ndarray, time_step: int) -> float:
         if len(joint_states) != 3:
@@ -49,7 +63,7 @@ class LobotArmBasicMovement:
         self.previous_coords = current_coords
 
         # Apply time decay to reward, also scale up reward so that it is not so small
-        reward = reward * 100 * math.exp(-0.005*time_step)
+        reward = reward * 100 * math.exp(-0.005 * time_step)
         return reward
 
     def reset(self):
@@ -84,4 +98,3 @@ class LobotArmBasicMovement:
         #         return numpy.array([])
         # else:
         #     self.node.get_logger().info('Service call failed %r' % (future.exception(),))
-

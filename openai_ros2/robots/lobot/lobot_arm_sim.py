@@ -3,6 +3,7 @@ from openai_ros2.utils.gazebo_connection import GazeboConnection
 from openai_ros2.utils import ut_param_server
 from std_srvs.srv import Empty
 from sensor_msgs.msg import JointState
+from gazebo_msgs.msg import ContactsState, ContactState
 import numpy
 from typing import Sequence, Type
 from enum import Enum
@@ -17,11 +18,11 @@ import time
 
 class LobotArmSim:
     class Action(Enum):
-        BigPositive = 0, 0.02
-        SmallPositive = 1, 0.005
+        BigPositive = 0, 0.05
+        SmallPositive = 1, 0.01
         Remain = 2, 0
-        SmallNegative = 3, -0.005
-        BigNegative = 4, -0.02
+        SmallNegative = 3, -0.05
+        BigNegative = 4, -0.01
 
         def __new__(cls, value, corresponding_value):
             member = object.__new__(cls)
@@ -31,6 +32,13 @@ class LobotArmSim:
 
         def __int__(self):
             return self.value
+
+    class Observation:
+        position_data: numpy.ndarray = numpy.array([])
+        velocity_data: numpy.ndarray = numpy.array([])
+        contact_count: int = 0
+        # the data in this contacts array is an object of gazebo_msgs.msg.ContactState
+        contacts: numpy.ndarray = numpy.array([])
 
     '''-------------PUBLIC METHODS START-------------'''
 
@@ -47,6 +55,11 @@ class LobotArmSim:
         self.__joint_state_sub = self.node.create_subscription(JointState, "/joint_states",
                                                                self.__joint_state_subscription_callback,
                                                                qos_profile=qos_profile_parameters)
+        self.__contact_sub = self.node.create_subscription(ContactsState, f"/{self.robot_name}/contacts",
+                                                           self.__contact_subscription_callback,
+                                                           qos_profile=qos_profile_sensor_data)
+
+        self.__latest_contact_msg = None
         self.__latest_joint_state_msg = None
         self.__target_joint_state = numpy.array([0.0, 0.0, 0.0])
 
@@ -86,39 +99,38 @@ class LobotArmSim:
     def reset(self) -> None:
         self.__gazebo.pause_sim()
         self.__gazebo.reset_sim()
-        self.__reset_controller()
         self.__reset_state()
         # No unpause here because it is assumed that the set_action will unpause it
 
-    def get_observations(self) -> numpy.ndarray:
+    def get_observations(self) -> Observation:
 
         message: JointState = self.__latest_joint_state_msg
+        obs = LobotArmSim.Observation()
         if not isinstance(message, JointState):
             print(f"Latest joint state message wrong type")
-            return numpy.array([])
+            return obs
         if message is None:
             print(f"Latest joint state message is None")
-            return numpy.array([])
+            return obs
 
         pos_arr = numpy.array(message.position)
+        obs.position_data = pos_arr
         vel_arr = numpy.array(message.velocity)
-        state_arr = numpy.concatenate((pos_arr, vel_arr))
-
-        return state_arr
+        obs.velocity_data = vel_arr
+        contact_msg: ContactsState = self.__latest_contact_msg
+        if contact_msg is None:
+            obs.contact_count = 0
+        else:
+            obs.contact_count = len(contact_msg.states)
+            obs.contacts = numpy.array(contact_msg.states)
+        return obs
 
     '''-------------PUBLIC METHODS END-------------'''
 
     '''-------------PRIVATE METHODS START-------------'''
 
-    def __reset_controller(self) -> None:
-        reset_client = self.node.create_client(Empty, '/' + self.robot_name + '/reset')
-        while not reset_client.wait_for_service(timeout_sec=1.0):
-            self.node.get_logger().info('/' + self.robot_name + '/reset service not available, waiting again...')
-        reset_robot_future = reset_client.call_async(Empty.Request())
-        print("Resetting controller to initial positions")
-        rclpy.spin_until_future_complete(self.node, reset_robot_future)
-
     def __reset_state(self) -> None:
+        self.__latest_contact_msg = None
         self.__latest_joint_state_msg = None
         self.__target_joint_state = numpy.array([0.0, 0.0, 0.0])
 
@@ -129,7 +141,20 @@ class LobotArmSim:
         self.__latest_joint_state_msg = message
         with self.__time_lock:
             self.__current_sim_time = rclpyTime(seconds=message.header.stamp.sec,
-                                               nanoseconds=message.header.stamp.nanosec)
+                                                nanoseconds=message.header.stamp.nanosec)
+
+    def __contact_subscription_callback(self, message: ContactsState) -> None:
+        header_time = message.header.stamp.sec * 1000000000 + message.header.stamp.nanosec
+        print(f"[{message.header.stamp.sec}][{message.header.stamp.nanosec}]Contact!!!")
+        current_sim_time = self.__current_sim_time.nanoseconds
+        time_diff = header_time - current_sim_time
+        if header_time < current_sim_time - 1000000000:
+            print(f"Outdated contact message, ignoring, time_diff: {time_diff}")
+            return
+        elif header_time > current_sim_time + 500000000:
+            print(f"Reset detected, ignoring, time_diff: {time_diff}")
+            return
+        self.__latest_contact_msg = message
 
     def __spin_until_update_period_over(self) -> None:
         # Loop to block such that when we take observation it is the latest observation when the
