@@ -29,6 +29,8 @@ while True:
         reward: float
         done: bool
         info: str
+        if done:
+            break
     time.sleep(1.0)
     print("-------------Resetting environment---------------")
     env.reset()
