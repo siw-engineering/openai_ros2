@@ -16,7 +16,7 @@ import copy
 import time
 
 
-class LobotArmConActSim:
+class LobotArmSimContinuous:
     class Observation:
         position_data: numpy.ndarray = numpy.array([])
         velocity_data: numpy.ndarray = numpy.array([])
@@ -67,7 +67,8 @@ class LobotArmConActSim:
         assert len(action) == 3, f"{len(action)} actions passed to LobotArmSim, expected: 3"
         assert action.shape == (3,), f"Expected action shape of {self.__target_joint_state.shape}, actual shape: {action.shape}"
 
-        self.__target_joint_state = action   #TODO +/= WHICH ONE ACTUALLY WORK BETTER? NEED TEST OUT
+        self.__target_joint_state += action   #TODO change from += to = and investigate the effects
+        self.__target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, -1.570796])
 
         msg = JointControl()
         msg.joints = self.__joint_names
@@ -87,7 +88,7 @@ class LobotArmConActSim:
     def get_observations(self) -> Observation:
 
         message: JointState = self.__latest_joint_state_msg
-        obs = LobotArmSim.Observation()
+        obs = LobotArmSimContinuous.Observation()
         if not isinstance(message, JointState):
             print(f"Latest joint state message wrong type")
             return obs
