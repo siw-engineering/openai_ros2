@@ -12,7 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
     ],
     package_data={'': ['forward_kinematics_py.so']},
-    install_requires=['setuptools', 'gym', 'numpy'],
+    install_requires=['setuptools', 'gym', 'numpy', 'psutil'],
     zip_safe=True,
     author='Poh Zhi-Ee',
     author_email='zhiee.poh@httechnology.com',
@@ -25,7 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
             'biped_random = examples.biped_random:main',
-            'robot_arm_random = examples.robot_arm_random:main'
+            'robot_arm_random = examples.robot_arm_random:main',
+            'robot_arm_random_continuous = examples.robot_arm_random_continuous:main'
         ],
     },
 )

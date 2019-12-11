@@ -3,7 +3,9 @@ from gym.spaces import Box
 import rclpy
 import random
 import numpy
+import psutil
 from typing import Sequence, Tuple, Type
+from openai_ros2.utils import ut_launch
 from openai_ros2.robots.lobot.lobot_arm_sim_continuous import LobotArmSimContinuous
 from openai_ros2.robots.lobot.tasks.basic_movement import LobotArmBasicMovement
 
@@ -18,10 +20,21 @@ class LobotArmContinuousEnv(gym.Env):
         # contacts: numpy.ndarray = numpy.array([])
 
     def __init__(self):
+        # Launch gazebo with the arm in a new Process
+        self.__pid_list = []
+        self.launch_subp = ut_launch.startLaunchServiceProcess(ut_launch.generateLaunchDescriptionLobotArm(True))
+        # TODO: Best to use dictionary for the PID such that it doesn't accidentally kill another process that takes
+        #  a previous process's PID
+        print(f"Adding process with pid {self.launch_subp.pid} to list")
+        self.__pid_list.append(self.launch_subp.pid)
+        parent = psutil.Process(self.launch_subp.pid)
+        for child in parent.children(recursive=True):
+            self.__pid_list.append(child.pid)
+            print(f"Adding process with pid {self.launch_subp.pid} to list")
+
         rclpy.init()
         self.node = rclpy.create_node(self.__class__.__name__)
-        self.action_space = Box(-1.57079632679, 1.57079632679, shape=(3, 1))
-        # TODO more dimension limit, i.e. -2 to 2 for joint1, -1 to 1 for joint2
+        self.action_space = Box(-1.57079632679, 1.57079632679, shape=(3,))
         self.__robot = LobotArmSimContinuous(self.node)
         self.__task = LobotArmBasicMovement(self.node)
         # Set up ROS related variables
@@ -35,6 +48,7 @@ class LobotArmContinuousEnv(gym.Env):
         obs = LobotArmContinuousEnv.ObservationData()
         obs.position_data = robot_state.position_data
         obs.velocity_data = robot_state.velocity_data
+
         reward = self.__task.compute_reward(robot_state.position_data, self.__step_num)
         done = self.__task.is_done(robot_state.position_data, robot_state.contact_count, self.__step_num)
         info = ""
@@ -53,6 +67,21 @@ class LobotArmContinuousEnv(gym.Env):
         self.__cumulated_episode_reward = 0
         # Maybe publish to topic?
         pass
+
+    def close(self):
+        print("Closing " + self.__class__.__name__ + " environment.")
+        self.node.destroy_node()
+        rclpy.shutdown()
+
+    def __del__(self):
+        print("Destructor of " + self.__class__.__name__ + " environment.")
+        for pid in self.__pid_list:
+            try:
+                p = psutil.Process(pid)
+                print(f"Killing process {pid}, name: {p.name()}")
+                p.kill()
+            except psutil.NoSuchProcess as nsp:
+                print(f"No such process {pid} {nsp}")
 
     def render(self, mode='human'):
         pass
