@@ -80,7 +80,7 @@ class LobotArmBasicMovement:
     def __get_coords(self, joint_states: numpy.ndarray) -> numpy.ndarray:
         if len(joint_states) != 3:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
-            return numpy.array([])
+            return numpy.array([0, 0, 0])
 
         # req = ForwardKinematics.Request()
         # req.joint_states = joint_states.tolist()
