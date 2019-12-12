@@ -63,7 +63,7 @@ class LobotArmBasicMovement:
         self.previous_coords = current_coords
 
         # Apply time decay to reward, also scale up reward so that it is not so small
-        reward = reward * 100 * math.exp(-0.005 * time_step)
+        reward = reward * 100
         return reward
 
     def reset(self):

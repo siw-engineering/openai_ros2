@@ -29,9 +29,9 @@ class LobotArmContinuousEnv(gym.Env):
         if(not context.ok()):
             rclpy.init() 
         self.node = rclpy.create_node(self.__class__.__name__)
-        self.action_space = Box(-1.57079632679, 1.57079632679, shape=(3,))
-        self.observation_space = Box(numpy.array([-2.37, -1.57, -1.57, -3, -3, -3]),
-                            numpy.array([2.37, 0.5, 1.57, 3, 3, 3]))
+        self.action_space = Box(-1, 1, shape=(3,))
+        self.observation_space = Box(numpy.array([-2.356, -1.57, -1.57, -3, -3, -3]),
+                            numpy.array([2.356, 0.5, 1.57, 3, 3, 3]))
         self.__robot = LobotArmSimContinuous(self.node)
         self.__task = LobotArmBasicMovement(self.node)
         # Set up ROS related variables
@@ -40,14 +40,14 @@ class LobotArmContinuousEnv(gym.Env):
         self.__step_num = 0
         self.reset()
 
-    def step(self, action: numpy.ndarray) -> Tuple[numpy.ndarray, float, bool, str]:
+    def step(self, action: numpy.ndarray) -> Tuple[numpy.ndarray, float, bool, dict]:
         self.__robot.set_action(action)
         robot_state: LobotArmContinuousEnv.Observation = self.__robot.get_observations()
         obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data))
 
         reward = self.__task.compute_reward(robot_state.position_data, self.__step_num)
         done = self.__task.is_done(robot_state.position_data, robot_state.contact_count, self.__step_num)
-        info = ""
+        info = {}
         self.__cumulated_episode_reward += reward
         self.__step_num += 1
 
