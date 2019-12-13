@@ -22,14 +22,18 @@ class LobotArmBase(abc.ABC):
     class Observation:
         position_data: numpy.ndarray = numpy.array([])
         velocity_data: numpy.ndarray = numpy.array([])
+        noiseless_position_data: numpy.ndarray = numpy.array([])
+        noiseless_velocity_data: numpy.ndarray = numpy.array([])
         contact_count: int = 0
         # the data in this contacts array is an object of gazebo_msgs.msg.ContactState
         contacts: numpy.ndarray = numpy.array([])
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node):
+    def __init__(self, node, state_noise_mu: float = None, state_noise_sigma: float = None):
         self.node = node
+        self.state_noise_mu = state_noise_mu
+        self.state_noise_sigma = state_noise_sigma
         self.__joint_state_sub = self.node.create_subscription(JointState, "/joint_states",
                                                                self.__joint_state_subscription_callback,
                                                                qos_profile=qos_profile_parameters)
@@ -54,9 +58,17 @@ class LobotArmBase(abc.ABC):
             return obs
 
         pos_arr = numpy.array(message.position)
-        obs.position_data = pos_arr
         vel_arr = numpy.array(message.velocity)
-        obs.velocity_data = vel_arr
+        obs.noiseless_position_data = pos_arr
+        obs.noiseless_velocity_data = vel_arr
+        if self.state_noise_sigma is not None and self.state_noise_mu is not None:
+            pos_noise = numpy.random.normal(self.state_noise_mu, self.state_noise_sigma, pos_arr.size)
+            vel_noise = numpy.random.normal(0, self.state_noise_sigma*2, vel_arr.size)
+            obs.position_data = pos_arr + pos_noise
+            obs.velocity_data = vel_arr + vel_noise
+        else:
+            obs.position_data = pos_arr
+            obs.velocity_data = vel_arr
         contact_msg: ContactsState = self._latest_contact_msg
         if contact_msg is None:
             obs.contact_count = 0
@@ -114,4 +126,3 @@ class LobotArmBase(abc.ABC):
         else:
             self.node.get_logger().warn('/get_current_sim_time service call failed')
             return rclpyTime()
-

@@ -12,9 +12,27 @@ register(
            }
 )
 register(
-    id='LobotArmDiscrete-v0',  # Discrete action space
+    id='LobotArmContinuous-v1',  # Continuous action space with noise
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': tasks.LobotArmFixedGoal,
+            'robot_cls': robots.LobotArmSimDiscrete,
+            'state_noise_mu': 0,
+            'state_noise_sigma': 0.075
+            }
+)
+register(
+    id='LobotArmDiscrete-v0',  # Discrete action space no noise
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': tasks.LobotArmFixedGoal,
             'robot_cls': robots.LobotArmSimDiscrete
+            }
+)
+register(
+    id='LobotArmDiscrete-v1',  # Discrete action space with noise
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': tasks.LobotArmFixedGoal,
+            'robot_cls': robots.LobotArmSimDiscrete,
+            'state_noise_mu': 0,
+            'state_noise_sigma': 0.075
             }
 )

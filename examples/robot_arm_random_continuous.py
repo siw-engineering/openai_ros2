@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-
-""" NOT A REAL TRAINING SCRIPT
-Please check the README.md in located in this same folder
-for an explanation of this script"""
-
 import gym
 import numpy
 import time
@@ -11,17 +6,16 @@ from openai_ros2.envs import LobotArmEnv
 from gym.spaces import Box
 from typing import Type
 
-
 def main(args=None):
-    env: LobotArmEnv = gym.make('LobotArmContinuous-v0')
+    env: LobotArmEnv = gym.make('LobotArmContinuous-v1') #Continuous with noise
     action_space: Type[Box] = env.action_space
-
     while True:
         print("-------------Starting----------------")
         for x in range(500):
             # action = numpy.array([1.00, -1.01, 1.01])
             action = action_space.sample()
-            observation, reward, done, info = env.step(action)
+            action_do_nothing = numpy.array([0, 0, 0])
+            observation, reward, done, info = env.step(action_do_nothing)
             # Type hints
             observation: numpy.ndarray
             reward: float

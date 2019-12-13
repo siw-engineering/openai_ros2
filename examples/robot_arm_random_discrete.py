@@ -13,16 +13,16 @@ from typing import Type
 
 
 def main(args=None):
-    env: LobotArmEnv = gym.make('LobotArmDiscrete-v0')
+    env: LobotArmEnv = gym.make('LobotArmDiscrete-v1') # Discrete with noise
     action_space: Type[MultiDiscrete] = env.action_space
     rclpy.spin_once(env.node)
-    env.reset()
     while True:
         print("-------------Starting----------------")
         for x in range(500):
             # action = numpy.array([1, 0, 4])
             action = action_space.sample()
-            observation, reward, done, info = env.step(action)
+            action_do_nothing = numpy.array([2, 2, 2])
+            observation, reward, done, info = env.step(action_do_nothing)
             # Type hints
             observation: numpy.ndarray
             reward: float

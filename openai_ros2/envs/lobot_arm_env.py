@@ -16,13 +16,15 @@ import rclpy
 class LobotArmEnv(gym.Env):
     """OpenAI Gym environment for Lobot Arm, utilises continuous action space."""
 
-    def __init__(self, robot_cls: type, task_cls: type):
+    def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None):
         ut_launch.set_network_env_vars()
         context = rclpy.get_default_context()
         if not context.ok():
             rclpy.init()
         self.node = rclpy.node.Node(robot_cls.__name__)
         self.__robot: LobotArmBase = robot_cls(self.node)
+        self.__robot.state_noise_mu = state_noise_mu
+        self.__robot.state_noise_sigma = state_noise_sigma
         self.__task = task_cls(self.node, self.__robot)
         self.action_space = self.__robot.get_action_space()
         self.observation_space = self.__robot.get_observation_space()
@@ -37,8 +39,8 @@ class LobotArmEnv(gym.Env):
         robot_state: LobotArmBase.Observation = self.__robot.get_observations()
         obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data))
 
-        reward = self.__task.compute_reward(robot_state.position_data, self.__step_num)
-        done = self.__task.is_done(robot_state.position_data, robot_state.contact_count, self.__step_num)
+        reward = self.__task.compute_reward(robot_state.noiseless_position_data, self.__step_num)
+        done = self.__task.is_done(robot_state.noiseless_position_data, robot_state.contact_count, self.__step_num)
         info: dict = {}
         self.__cumulated_episode_reward += reward
         self.__step_num += 1
