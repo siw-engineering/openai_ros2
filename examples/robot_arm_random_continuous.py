@@ -5,14 +5,15 @@ Please check the README.md in located in this same folder
 for an explanation of this script"""
 
 import gym
+import numpy
 import time
-from openai_ros2.envs import LobotArmContinuousEnv
+from openai_ros2.envs import LobotArmEnv
 from gym.spaces import Box
 from typing import Type
 
 
 def main(args=None):
-    env: LobotArmContinuousEnv = gym.make('LobotArmContinuous-v0')
+    env: LobotArmEnv = gym.make('LobotArmContinuous-v0')
     action_space: Type[Box] = env.action_space
 
     while True:
@@ -22,10 +23,10 @@ def main(args=None):
             action = action_space.sample()
             observation, reward, done, info = env.step(action)
             # Type hints
-            observation: LobotArmContinuousEnv.ObservationData
+            observation: numpy.ndarray
             reward: float
             done: bool
-            info: str
+            info: dict
             if done:
                 break
         time.sleep(1.0)

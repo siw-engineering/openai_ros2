@@ -1,15 +1,20 @@
 from gym.envs.registration import register
 
-register(
-    id='LobotArmMoveSimple-v0',  # Move to the sample goal after all reset
-    entry_point='openai_ros2.envs:LobotArmMoveSimpleEnv',
-)
+from openai_ros2.tasks import LobotArmFixedGoal
+from openai_ros2.robots import LobotArmSim
+
 
 register(
-    id='LobotArmMoveSimple-v1',  # Move to the random goal after all reset
-    entry_point='openai_ros2.envs:LobotArmMoveSimpleRandomGoalEnv',
+    id='LobotArmContinuous-v0',  # Continuous action space
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': tasks.LobotArmFixedGoal,
+            'robot_cls': robots.LobotArmSim
+           }
 )
 register(
-    id='LobotArmContinuous-v0',  # Continuous action space
-    entry_point='openai_ros2.envs:LobotArmContinuousEnv',
+    id='LobotArmDiscrete-v0',  # Discrete action space
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': tasks.LobotArmFixedGoal,
+            'robot_cls': robots.LobotArmSimDiscrete
+            }
 )

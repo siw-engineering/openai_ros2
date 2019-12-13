@@ -1,3 +1,1 @@
-from openai_ros2.envs.lobot_arm_move_simple import LobotArmMoveSimpleEnv
-from openai_ros2.envs.lobot_arm_move_simple_continuous import LobotArmContinuousEnv
-from openai_ros2.envs.lobot_arm_move_simple_random_goal import LobotArmMoveSimpleRandomGoalEnv
+from openai_ros2.envs.lobot_arm_env import LobotArmEnv

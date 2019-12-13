@@ -5,15 +5,10 @@ from ament_index_python.packages import get_package_share_directory
 import os
 
 
-class LobotArmBasicMovement:
-    def __init__(self, node, max_time_step: int = 500):
+class LobotArmFixedGoal:
+    def __init__(self, node, robot, max_time_step: int = 500):
         self.node = node
-
-        # This time decay constant makes it such that rewards at later time steps are diminished
-        # This is based on the exponential decay equation e^(-lambda * t), in this case t is time step
-        # At lambda = -0.005,time_step = 100, proportion of reward = 0.6065
-        # At time step = 200, proportion of reward = 0.36788
-        self.time_decay_constant = -0.005
+        self.robot = robot
 
         # The target coords is currently arbitrarily set to some point achievable
         # This is the target for arm_3_link when target joint values are: [1.00, -1.01, 1.01]
@@ -30,7 +25,7 @@ class LobotArmBasicMovement:
             return True
 
         current_coords = self.__get_coords(joint_states)
-        acceptedError = 0.01
+        accepted_error = 0.01
 
         # Highest done priority is if time step exceeds limit, so we check this first
         if time_step > self.__max_time_step:
@@ -38,7 +33,7 @@ class LobotArmBasicMovement:
 
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
         for i in range(3):
-            if abs(self.target_coords[i] - current_coords[i]) > acceptedError:
+            if abs(self.target_coords[i] - current_coords[i]) > accepted_error:
                 return False
         # If all coordinates within acceptance range AND time step within limits, we are done
         print(f"Reached destination, target coords: {self.target_coords}, current coords: {current_coords}")
@@ -56,13 +51,13 @@ class LobotArmBasicMovement:
 
         # Give 0 reward on initial state
         if numpy.array_equal(self.previous_coords, numpy.array([0.0, 0.0, 0.0])):
-            print("Initial state detected, giving 0 reward")
-            reward = 0
+            # print("Initial state detected, giving 0 reward")
+            reward = 0.0
         else:
             reward = self.__calc_dist_change(self.previous_coords, current_coords)
         self.previous_coords = current_coords
 
-        # Apply time decay to reward, also scale up reward so that it is not so small
+        # Scale up reward so that it is not so small
         reward = reward * 100
         return reward
 
@@ -82,19 +77,5 @@ class LobotArmBasicMovement:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
             return numpy.array([0, 0, 0])
 
-        # req = ForwardKinematics.Request()
-        # req.joint_states = joint_states.tolist()
-
         res = self.__fk.calculate('world', 'arm_3_link', joint_states)
         return numpy.array([res.translation.x, res.translation.y, res.translation.z])
-        # future = self.__fk_service.call_async(req)
-        # rclpy.spin_until_future_complete(self.node, future)
-        # if future.result() is not None:
-        #     fk_response: ForwardKinematics.Response = future.result()
-        #     # self.node.get_logger().info(f'FK successful: {fk_response.success}')
-        #     if fk_response.success:
-        #         return numpy.array([fk_response.x, fk_response.y, fk_response.z])
-        #     else:
-        #         return numpy.array([])
-        # else:
-        #     self.node.get_logger().info('Service call failed %r' % (future.exception(),))

@@ -71,12 +71,12 @@ class BipedEnv(gym.Env):
         EE_VELOCITIES = np.asmatrix([[0, 0, 0]])
 
         # # Topics for the robot publisher and subscriber.
-        JOINT_PUBLISHER = '/lobot/control'
+        JOINT_PUBLISHER = '/lobot_arm/control'
         # Get Joint names from the parameter server
         get_joints_client = self.node.create_client(GetAllJoints, "/GetAllControlJoints",
                                                     qos_profile=qos_profile_services_default)
         req = GetAllJoints.Request()
-        req.robot = "lobot"
+        req.robot = "lobot_arm"
         while not get_joints_client.wait_for_service(timeout_sec=3.0):
             self.node.get_logger().info('service not available, waiting again...')
 
@@ -125,7 +125,7 @@ class BipedEnv(gym.Env):
         # self._sub = self.node.create_subscription(JointTrajectoryControllerState, JOINT_SUBSCRIBER, self.observation_callback, qos_profile=qos_profile_sensor_data)
         self._reset_sim = self.node.create_client(Empty, '/reset_simulation')
         self._physics_pauser = self.node.create_client(Empty, '/pause_physics')
-        self._robot_resetter = self.node.create_client(Empty, '/lobot/reset')
+        self._robot_resetter = self.node.create_client(Empty, '/lobot_arm/reset')
         self._physics_unpauser = self.node.create_client(Empty, '/unpause_physics')
         self.delete_entity = self.node.create_client(DeleteEntity, '/delete_entity')
         self.numJoints = len(JOINT_ORDER)
@@ -280,7 +280,7 @@ class BipedEnv(gym.Env):
 
             # reset controllers
             while not self._robot_resetter.wait_for_service(timeout_sec=1.0):
-                self.node.get_logger().info('/lobot/reset service not available, waiting again...')
+                self.node.get_logger().info('/lobot_arm/reset service not available, waiting again...')
             reset_robot_future = self._robot_resetter.call_async(Empty.Request())
             print("Resetting controller initial positions")
             rclpy.spin_until_future_complete(self.node, reset_robot_future)

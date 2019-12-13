@@ -1,12 +1,25 @@
+import os
 from std_srvs.srv import Empty
 from gazebo_msgs.srv import DeleteEntity
 import rclpy
+from rclpy.node import Node
 from rclpy.parameter import Parameter
+from launch import LaunchDescription
+from typing import Type
+from openai_ros2.utils import ut_launch
+import psutil
 
-class GazeboConnection:
 
-    def __init__(self, node):
-        self.node = node
+class Gazebo:
+
+    def __init__(self, use_gui: bool = True, launch_description: Type[LaunchDescription] = None):
+        # Launch gazebo with the arm in a new Process
+        self.__pid_list = []
+        if launch_description is None:
+            launch_description = ut_launch.generate_launch_description_lobot_arm(use_gui)
+        self.launch_subp = ut_launch.startLaunchServiceProcess(launch_description)
+
+        self.node = Node("openai_ros2_gazebo_node")
         self.node.set_parameters([Parameter('use_sim_time', Parameter.Type.BOOL, True)])
         self._reset_sim = self.node.create_client(Empty, '/reset_simulation')
         self._physics_pause_client = self.node.create_client(Empty, '/pause_physics')
@@ -52,4 +65,13 @@ class GazeboConnection:
             print(delete_message)
             return delete_success_status
 
-
+    def __del__(self):
+        # For some reason this is not called, but whatever
+        print(f'Gazebo class destructor called, cleaning up processes...')
+        current_pid = os.getpid()
+        children = psutil.Process(current_pid).children(recursive=True)
+        for child in children:
+            name = child.name()
+            if name == "gzserver" or name == "gzclient" or name == "params_server_exec":
+                print(f'Killing process {child.name()} with pid {child.pid}')
+                child.kill()

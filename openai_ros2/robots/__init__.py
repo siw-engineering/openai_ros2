@@ -1,3 +1,3 @@
-from openai_ros2.robots.lobot.lobot_arm_sim import LobotArmSim
-from openai_ros2.robots.lobot.lobot_arm_sim_continuous import LobotArmSimContinuous
-from openai_ros2.robots.lobot.tasks import LobotArmBasicMovement
+from openai_ros2.robots.lobot_arm.lobot_arm_base import LobotArmBase
+from openai_ros2.robots.lobot_arm.lobot_arm_sim import LobotArmSim
+from openai_ros2.robots.lobot_arm.lobot_arm_sim_discrete import LobotArmSimDiscrete

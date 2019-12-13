@@ -99,18 +99,9 @@ def getExclusiveNetworkParameters():
             'gazebo_master_uri': "http://localhost:" + str(randomPortGazebo)}
 
 
-def generateLaunchDescriptionLobotArm(use_gui: bool = False):
+def generate_launch_description_lobot_arm(use_gui: bool = False):
     # Get gazebo_ros package path
     sim_share_path = get_package_share_directory('arm_simulation')
-
-    # Set network segmentation environment variables
-    networkParams = getExclusiveNetworkParameters()
-    os.environ["ROS_DOMAIN_ID"] = networkParams.get('ros_domain_id')
-    os.environ["GAZEBO_MASTER_URI"] = networkParams.get('gazebo_master_uri')
-    print("******* Exclusive network segmentation *******")
-    print("ROS_DOMAIN_ID=" + networkParams.get('ros_domain_id'))
-    print("GAZEBO_MASTER_URI=" + networkParams.get('gazebo_master_uri'))
-    print("")
 
     # Launch param server
     params_server = IncludeLaunchDescription(
@@ -127,3 +118,14 @@ def generateLaunchDescriptionLobotArm(use_gui: bool = False):
         params_server,
         arm_spawner
     ])
+
+
+def set_network_env_vars():
+    network_params = getExclusiveNetworkParameters()
+    os.environ["ROS_DOMAIN_ID"] = network_params.get('ros_domain_id')
+    os.environ["GAZEBO_MASTER_URI"] = network_params.get('gazebo_master_uri')
+    print("******* Exclusive network segmentation *******")
+    print("ROS_DOMAIN_ID=" + network_params.get('ros_domain_id'))
+    print("GAZEBO_MASTER_URI=" + network_params.get('gazebo_master_uri'))
+    print("")
+
