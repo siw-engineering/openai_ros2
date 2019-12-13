@@ -7,7 +7,7 @@ from gym.spaces import Box
 from typing import Type
 
 def main(args=None):
-    env: LobotArmEnv = gym.make('LobotArmContinuous-v1') #Continuous with noise
+    env: LobotArmEnv = gym.make('LobotArmContinuousNoGui-v0') #Continuous with noise
     action_space: Type[Box] = env.action_space
     while True:
         print("-------------Starting----------------")

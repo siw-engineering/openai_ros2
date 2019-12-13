@@ -12,6 +12,14 @@ register(
            }
 )
 register(
+    id='LobotArmContinuousNoGui-v0',  # Continuous action space
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': tasks.LobotArmFixedGoal,
+            'robot_cls': robots.LobotArmSim,
+            'use_gui': False
+            }
+)
+register(
     id='LobotArmContinuous-v1',  # Continuous action space with noise
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': tasks.LobotArmFixedGoal,

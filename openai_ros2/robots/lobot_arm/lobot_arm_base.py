@@ -104,7 +104,7 @@ class LobotArmBase(abc.ABC):
         self._latest_joint_state_msg = message
         latest_msg_time = rclpyTime(seconds=message.header.stamp.sec,
                                     nanoseconds=message.header.stamp.nanosec)
-        if self._current_sim_time < latest_msg_time:
+        if self._current_sim_time <= latest_msg_time:
             with self._time_lock:
                 self._current_sim_time = latest_msg_time
 

@@ -25,8 +25,8 @@ class LobotArmSim(LobotArmBase):
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node):
-        self._gazebo = Gazebo()
+    def __init__(self, node, use_gui: bool = True):
+        self._gazebo = Gazebo(use_gui=use_gui)
         super().__init__(node)
         # Get robot name from parameter server, this is to ensure that the gazebo plugin subscribing to the control
         # reads the same name as this code, because the topic depends on the robot name
@@ -53,9 +53,10 @@ class LobotArmSim(LobotArmBase):
         :return: obs, reward, done, info
         """
         assert len(action) == 3, f"{len(action)} actions passed to LobotArmSim, expected: 3"
-        assert action.shape == (3,), f"Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}"
+        assert action.shape == (
+            3,), f"Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}"
 
-        self._target_joint_state += action   #TODO change from += to = and investigate the effects
+        self._target_joint_state += action  # TODO change from += to = and investigate the effects
         self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, -1.570796])
 
         msg = JointControl()
@@ -78,7 +79,7 @@ class LobotArmSim(LobotArmBase):
 
     def get_observation_space(self):
         return Box(numpy.array([-2.356, -1.57, -1.57, -3, -3, -3]),
-            numpy.array([2.356, 0.5, 1.57, 3, 3, 3]))
+                   numpy.array([2.356, 0.5, 1.57, 3, 3, 3]))
 
     '''-------------PUBLIC METHODS END-------------'''
 
