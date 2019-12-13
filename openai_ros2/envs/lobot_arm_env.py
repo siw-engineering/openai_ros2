@@ -64,3 +64,7 @@ class LobotArmEnv(gym.Env):
 
     def render(self, mode='human'):
         pass
+
+    def set_state_noise(self, mu: float, sigma: float) -> None:
+        self.__robot.state_noise_mu = mu
+        self.__robot.state_noise_sigma = sigma

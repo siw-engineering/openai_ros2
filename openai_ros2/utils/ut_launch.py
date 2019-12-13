@@ -86,7 +86,7 @@ def getExclusiveNetworkParameters():
     pathlib.Path(tempPath).mkdir(parents=True, exist_ok=True)
 
     # Remove old tmp files.
-    ut_generic.cleanOldFiles(tempPath, ".log", 2)
+    ut_generic.cleanOldFiles(tempPath, ".log", days=2)
 
     filename = datetime.now().strftime('running_since_%H_%M__%d_%m_%Y.log')
 
