@@ -71,14 +71,14 @@ def getExclusiveNetworkParameters():
     """
 
     randomPortROS = random.randint(0, 200)
-    randomPortGazebo = random.randint(10000, 15000)
+    gazeboPort = 11535
     while isRosDomainInUse(randomPortROS):
-        print("Randomly selected ROS Domain is already in use, retrying.")
+        print(f"Randomly selected ROS Domain ({randomPortROS}) is already in use, retrying.")
         randomPortROS = random.randint(0, 200)
 
-    while isPortInUse(randomPortGazebo):
-        print("Randomly selected gazebo port is already in use, retrying.")
-        randomPortGazebo = random.randint(10000, 15000)
+    while isPortInUse(gazeboPort):
+        print(f"Selected gazebo port ({gazeboPort}) is already in use, retrying.")
+        gazeboPort = random.randint(10000, 15000)
 
     # Save network segmentation related information in a temporary folder.
     cwd: str = os.getcwd()
@@ -92,11 +92,11 @@ def getExclusiveNetworkParameters():
 
     file = open(tempPath + '/' + filename, 'w+')
     file.write(filename + '\nROS_DOMAIN_ID=' + str(randomPortROS) \
-               + '\nGAZEBO_MASTER_URI=http://localhost:' + str(randomPortGazebo))
+               + '\nGAZEBO_MASTER_URI=http://localhost:' + str(gazeboPort))
     file.close()
 
     return {'ros_domain_id': str(randomPortROS),
-            'gazebo_master_uri': "http://localhost:" + str(randomPortGazebo)}
+            'gazebo_master_uri': "http://localhost:" + str(gazeboPort)}
 
 
 def generate_launch_description_lobot_arm(use_gui: bool = False):
