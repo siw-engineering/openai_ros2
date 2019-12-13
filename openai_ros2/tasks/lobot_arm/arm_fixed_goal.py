@@ -25,7 +25,7 @@ class LobotArmFixedGoal:
             return True
 
         current_coords = self.__get_coords(joint_states)
-        accepted_error = 0.01
+        accepted_error = 0.001
 
         # Highest done priority is if time step exceeds limit, so we check this first
         if time_step > self.__max_time_step:
