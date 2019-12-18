@@ -114,8 +114,7 @@ class LobotArmSim(LobotArmBase):
             # spinning the node will cause self.__current_sim_time to be updated
             rclpy.spin_once(self.node, timeout_sec=0.3)
 
-            with self._time_lock:
-                current_sim_time = copy.copy(self._current_sim_time)
+            current_sim_time = copy.copy(self._current_sim_time)
             time_diff_ns = current_sim_time.nanoseconds - self._previous_update_sim_time.nanoseconds
             if time_diff_ns < 0:
                 print("Negative time difference detected, probably due to a reset")
