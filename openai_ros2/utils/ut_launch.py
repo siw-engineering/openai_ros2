@@ -35,7 +35,7 @@ def startLaunchServiceProcess(launchDesc):
 
 def isRosDomainInUse(domain_id: int):
     # For port calculation, refer to https://fast-rtps.docs.eprosima.com/en/latest/advanced.html#listening-locators
-    # Only works for fast-rtps dds for now
+    # Only works for fast-rtps dds for now, also maybe opensplice
     port = 7400 + 250 * domain_id
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         # period to see if any data comes into the udp port (1.0 means wait for 1s for data to come)
@@ -43,7 +43,7 @@ def isRosDomainInUse(domain_id: int):
         try:
             sock.bind(('', port))
             data, addr = sock.recvfrom(64)
-            print(f"data: {data}, addr: {addr}")
+            print(f"[{domain_id}]data: {data}, addr: {addr}")
             return True
         except socket.timeout:
             return False
@@ -100,7 +100,7 @@ def getExclusiveNetworkParameters():
 
 
 def generate_launch_description_lobot_arm(use_gui: bool = False):
-    # Get gazebo_ros package path
+    # Get simulation package path
     sim_share_path = get_package_share_directory('arm_simulation')
 
     # Launch param server
@@ -128,4 +128,3 @@ def set_network_env_vars():
     print("ROS_DOMAIN_ID=" + network_params.get('ros_domain_id'))
     print("GAZEBO_MASTER_URI=" + network_params.get('gazebo_master_uri'))
     print("")
-

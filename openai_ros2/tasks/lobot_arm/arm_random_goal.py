@@ -1,34 +1,31 @@
 import numpy
 import math
 from openai_ros2.utils import forward_kinematics_py as fk
-from openai_ros2.utils import ut_gazebo
+from openai_ros2.utils import ut_launch, ut_gazebo
 from openai_ros2.robots import LobotArmSim
 from ament_index_python.packages import get_package_share_directory
 import os
 import rclpy
 
 
-class LobotArmFixedGoal:
+class LobotArmRandomGoal:
     def __init__(self, node: rclpy.node.Node, robot, max_time_step: int = 500):
         self.node = node
         self.robot = robot
 
-        # The target coords is currently arbitrarily set to some point achievable
-        # This is the target for grip_end_point when target joint values are: [1.00, -1.01, 1.01]
-        target_x = 0.10175
-        target_y = -0.05533
-        target_z = 0.1223
-        if isinstance(robot, LobotArmSim):  # Check if is simulator or real
-            # Repawn the target marker if it is simulated
-            success, status = ut_gazebo.remove_target_marker(node)
-            node.get_logger().info(f'Delete marker success: {success}, status: {status}')
-            spawn_success = ut_gazebo.spawn_target_marker(node, target_x, target_y, target_z)
-        self.target_coords = numpy.array([target_x, target_y, target_z])
-        self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.__max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
         arm_urdf_path = os.path.join(lobot_desc_share_path, "robots/arm_standalone.urdf")
         self.__fk = fk.ForwardKinematics(arm_urdf_path)
+
+        self.target_coords = self.__generate_target_coords()
+        target_x = self.target_coords[0]
+        target_y = self.target_coords[1]
+        target_z = self.target_coords[2]
+        if isinstance(robot, LobotArmSim):  # Check if is simulator or real
+            # Repawn the target marker if it is simulated
+            spawn_success = ut_gazebo.spawn_target_marker(node, target_x, target_y, target_z)
+        self.previous_coords = numpy.array([0.0, 0.0, 0.0])
 
     def is_done(self, joint_states: numpy.ndarray, contact_count: int, time_step: int = -1) -> bool:
         # If there is any contact (collision), we consider the episode done
@@ -74,6 +71,13 @@ class LobotArmFixedGoal:
 
     def reset(self):
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
+        ut_gazebo.remove_target_marker(self.node)
+        self.target_coords = self.__generate_target_coords()
+        if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
+            # Repawn the target marker if it is simulated
+            success, status = ut_gazebo.remove_target_marker(self.node)
+            self.node.get_logger().info(f'Delete marker success: {success}, status: {status}')
+            spawn_success = ut_gazebo.spawn_target_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2])
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:
@@ -86,7 +90,17 @@ class LobotArmFixedGoal:
     def __get_coords(self, joint_states: numpy.ndarray) -> numpy.ndarray:
         if len(joint_states) != 3:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
-            return numpy.array([0, 0, 0])
+            return numpy.array([0.0, 0.0, 0.0])
 
-        res = self.__fk.calculate('world', 'arm_3_link', joint_states)
+        res = self.__fk.calculate('world', 'grip_end_point', joint_states)
         return numpy.array([res.translation.x, res.translation.y, res.translation.z])
+
+    def __generate_target_coords(self) -> numpy.ndarray:
+        while True :
+            random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
+            res = self.__fk.calculate('world', 'grip_end_point', random_joint_values)
+            if res.translation.z > 0.0:
+                break
+        target_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
+        return target_coords
+

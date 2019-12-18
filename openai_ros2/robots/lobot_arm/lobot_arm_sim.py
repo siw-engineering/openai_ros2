@@ -37,7 +37,7 @@ class LobotArmSim(LobotArmBase):
         self._control_pub = self.node.create_publisher(JointControl, joint_control_topic, qos_profile_services_default)
         self._contact_sub = self.node.create_subscription(ContactsState, f"/{self.robot_name}/contacts",
                                                           self.__contact_subscription_callback,
-                                                          qos_profile=qos_profile_services_default)
+                                                          qos_profile=qos_profile_sensor_data)
 
         self._latest_contact_msg = None
         self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
@@ -93,7 +93,7 @@ class LobotArmSim(LobotArmBase):
 
     def __contact_subscription_callback(self, message: ContactsState) -> None:
         header_time = message.header.stamp.sec * 1000000000 + message.header.stamp.nanosec
-        # print(f"[{message.header.stamp.sec}][{message.header.stamp.nanosec}]Contact!!")
+        print(f"[{message.header.stamp.sec}][{message.header.stamp.nanosec}]Contact!!")
         current_sim_time = self._current_sim_time.nanoseconds
         time_diff = header_time - current_sim_time
         if header_time < current_sim_time - 1000000000:
@@ -127,8 +127,9 @@ class LobotArmSim(LobotArmBase):
                 break
 
         if loop_duration >= timeout_duration:
+            srv_time = self._get_current_sim_time_from_srv()
             self.node.get_logger().warn(f"Wait for simulation loop timeout, getting time from service instead")
-            current_sim_time = self._get_current_sim_time_from_srv()
-            self._current_sim_time = current_sim_time
+            self.node.get_logger().warn(f'Current sim time: {current_sim_time.nanoseconds}, time from service: {srv_time.nanoseconds}')
+            self._current_sim_time = srv_time
         self._previous_update_sim_time = current_sim_time
 
