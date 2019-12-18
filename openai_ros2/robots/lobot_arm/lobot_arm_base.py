@@ -19,10 +19,10 @@ class LobotArmBase(abc.ABC):
     """Base Lobot Arm"""
 
     class Observation:
-        position_data: numpy.ndarray = numpy.array([])
-        velocity_data: numpy.ndarray = numpy.array([])
-        noiseless_position_data: numpy.ndarray = numpy.array([])
-        noiseless_velocity_data: numpy.ndarray = numpy.array([])
+        position_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
+        velocity_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
+        noiseless_position_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
+        noiseless_velocity_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
         contact_count: int = 0
         # the data in this contacts array is an object of gazebo_msgs.msg.ContactState
         contacts: numpy.ndarray = numpy.array([])
@@ -47,20 +47,20 @@ class LobotArmBase(abc.ABC):
 
         message: JointState = self._latest_joint_state_msg
         obs = LobotArmBase.Observation()
-        if not isinstance(message, JointState):
-            print(f"Latest joint state message wrong type")
-            return obs
         if message is None:
             print(f"Latest joint state message is None")
             return obs
-
+            
+        if not isinstance(message, JointState):
+            print(f"Latest joint state message wrong type")
+            return obs
         pos_arr = numpy.array(message.position)
         vel_arr = numpy.array(message.velocity)
         obs.noiseless_position_data = pos_arr
         obs.noiseless_velocity_data = vel_arr
         if self.state_noise_sigma is not None and self.state_noise_mu is not None:
             pos_noise = numpy.random.normal(self.state_noise_mu, self.state_noise_sigma, pos_arr.size)
-            vel_noise = numpy.random.normal(0, self.state_noise_sigma*2, vel_arr.size)
+            vel_noise = numpy.random.normal(0.0, self.state_noise_sigma*2, vel_arr.size)
             obs.position_data = pos_arr + pos_noise
             obs.velocity_data = vel_arr + vel_noise
         else:

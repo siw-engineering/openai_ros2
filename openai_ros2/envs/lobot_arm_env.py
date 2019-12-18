@@ -1,3 +1,4 @@
+import os
 from typing import Tuple
 
 import gym
@@ -18,6 +19,7 @@ class LobotArmEnv(gym.Env):
 
     def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None):
         ut_launch.set_network_env_vars()
+        os.environ["RMW_IMPLEMENTATION"] = 'rmw_opensplice_cpp'
         context = rclpy.get_default_context()
         if not context.ok():
             rclpy.init()
@@ -57,7 +59,7 @@ class LobotArmEnv(gym.Env):
         self.__step_num = 0
         self.__episode_num += 1
         self.__cumulated_episode_reward = 0
-        return numpy.array([0, 0, 0, 0, 0, 0])
+        return numpy.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     def close(self):
         print('Closing ' + self.__class__.__name__ + ' environment.')
