@@ -1,4 +1,3 @@
-import threading
 import abc
 
 from gazebo_msgs.msg import ContactsState
@@ -31,7 +30,7 @@ class LobotArmBase(abc.ABC):
     '''-------------PUBLIC METHODS START-------------'''
 
     def __init__(self, node, state_noise_mu: float = None, state_noise_sigma: float = None):
-        self.node = node
+        self.node: rclpy.Node = node
         self.state_noise_mu = state_noise_mu
         self.state_noise_sigma = state_noise_sigma
         self.__joint_state_sub = self.node.create_subscription(JointState, "/joint_states",
@@ -43,8 +42,6 @@ class LobotArmBase(abc.ABC):
         self._previous_update_sim_time = rclpyTime()
         self._current_sim_time = rclpyTime()
         self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
-
-        self._time_lock = threading.Lock()
 
     def get_observations(self) -> Observation:
 
@@ -89,6 +86,10 @@ class LobotArmBase(abc.ABC):
     def get_observation_space(self):
         pass
 
+    @abc.abstractmethod
+    def reset(self) -> None:
+        pass
+
     '''-------------PUBLIC METHODS END-------------'''
 
     '''-------------PRIVATE METHODS START-------------'''
@@ -105,10 +106,9 @@ class LobotArmBase(abc.ABC):
         latest_msg_time = rclpyTime(seconds=message.header.stamp.sec,
                                     nanoseconds=message.header.stamp.nanosec)
         if self._current_sim_time < latest_msg_time:
-            with self._time_lock:
-                self._current_sim_time = latest_msg_time
+            self._current_sim_time = latest_msg_time
 
-    def __get_current_sim_time_from_srv(self) -> rclpyTime:
+    def _get_current_sim_time_from_srv(self) -> rclpyTime:
         client = self.node.create_client(GetCurrentSimTime, "/get_current_sim_time")
         req = GetCurrentSimTime.Request()
         retry_count = 0

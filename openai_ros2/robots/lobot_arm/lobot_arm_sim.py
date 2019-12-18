@@ -9,7 +9,7 @@ from openai_ros2.utils import ut_param_server
 from openai_ros2.utils.gazebo import Gazebo
 
 import rclpy
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import qos_profile_sensor_data, qos_profile_services_default
 from rclpy.time import Time as rclpyTime
 
 from ros2_control_interfaces.msg import JointControl
@@ -34,10 +34,10 @@ class LobotArmSim(LobotArmBase):
         self.robot_name = robot_names[0]
         self._joint_names = ut_param_server.get_joints(self.node, self.robot_name)
         joint_control_topic = '/' + self.robot_name + '/control'
-        self._control_pub = self.node.create_publisher(JointControl, joint_control_topic, qos_profile_sensor_data)
+        self._control_pub = self.node.create_publisher(JointControl, joint_control_topic, qos_profile_services_default)
         self._contact_sub = self.node.create_subscription(ContactsState, f"/{self.robot_name}/contacts",
                                                           self.__contact_subscription_callback,
-                                                          qos_profile=qos_profile_sensor_data)
+                                                          qos_profile=qos_profile_services_default)
 
         self._latest_contact_msg = None
         self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
@@ -53,9 +53,9 @@ class LobotArmSim(LobotArmBase):
         :return: obs, reward, done, info
         """
         assert len(action) == 3, f"{len(action)} actions passed to LobotArmSim, expected: 3"
-        assert action.shape == (3,), f"Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}"
+        assert action.shape == (3,), f'Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}'
 
-        self._target_joint_state += action   #TODO change from += to = and investigate the effects
+        self._target_joint_state += action  # TODO change from += to = and investigate the effects
         self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, -1.570796])
 
         msg = JointControl()
@@ -78,7 +78,7 @@ class LobotArmSim(LobotArmBase):
 
     def get_observation_space(self):
         return Box(numpy.array([-2.356, -1.57, -1.57, -3, -3, -3]),
-            numpy.array([2.356, 0.5, 1.57, 3, 3, 3]))
+                   numpy.array([2.356, 0.5, 1.57, 3, 3, 3]))
 
     '''-------------PUBLIC METHODS END-------------'''
 
@@ -129,24 +129,7 @@ class LobotArmSim(LobotArmBase):
 
         if loop_duration >= timeout_duration:
             self.node.get_logger().warn(f"Wait for simulation loop timeout, getting time from service instead")
-            current_sim_time = self.__get_current_sim_time_from_srv()
+            current_sim_time = self._get_current_sim_time_from_srv()
+            self._current_sim_time = current_sim_time
         self._previous_update_sim_time = current_sim_time
 
-    def __get_current_sim_time_from_srv(self) -> rclpyTime:
-        client = self.node.create_client(GetCurrentSimTime, "/get_current_sim_time")
-        req = GetCurrentSimTime.Request()
-        retry_count = 0
-        while not client.wait_for_service(timeout_sec=1.0) and retry_count < 10:
-            self.node.get_logger().info('/get_current_sim_time service not available, waiting again...')
-            retry_count += 1
-
-        future = client.call_async(req)
-        rclpy.spin_until_future_complete(self.node, future)
-        if future.result() is not None:
-            current_sim_time_sec = future.result().sec
-            current_sim_time_nsec = future.result().nanosec
-            current_sim_time = rclpyTime(seconds=current_sim_time_sec, nanoseconds=current_sim_time_nsec)
-            return current_sim_time
-        else:
-            self.node.get_logger().warn('/get_current_sim_time service call failed')
-            return rclpyTime()

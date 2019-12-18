@@ -15,7 +15,7 @@ register(
     id='LobotArmContinuous-v1',  # Continuous action space with noise
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': tasks.LobotArmFixedGoal,
-            'robot_cls': robots.LobotArmSimDiscrete,
+            'robot_cls': robots.LobotArmSim,
             'state_noise_mu': 0,
             'state_noise_sigma': 0.075
             }

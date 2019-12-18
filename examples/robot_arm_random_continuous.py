@@ -14,7 +14,7 @@ def main(args=None):
         for x in range(500):
             # action = numpy.array([1.00, -1.01, 1.01])
             action = action_space.sample()
-            action_do_nothing = numpy.array([0, 0, 0])
+            action_do_nothing = numpy.array([0.0, 0.0, 0.0])
             observation, reward, done, info = env.step(action_do_nothing)
             # Type hints
             observation: numpy.ndarray

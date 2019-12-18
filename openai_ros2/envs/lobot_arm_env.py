@@ -21,7 +21,9 @@ class LobotArmEnv(gym.Env):
         context = rclpy.get_default_context()
         if not context.ok():
             rclpy.init()
-        self.node = rclpy.node.Node(robot_cls.__name__)
+        sim_time_param= rclpy.parameter.Parameter("use_sim_time", value=True)
+        self.node = rclpy.node.Node(robot_cls.__name__, parameter_overrides=[sim_time_param])
+        # self.node.set_parameters([sim_time])
         self.__robot: LobotArmBase = robot_cls(self.node)
         self.__robot.state_noise_mu = state_noise_mu
         self.__robot.state_noise_sigma = state_noise_sigma
