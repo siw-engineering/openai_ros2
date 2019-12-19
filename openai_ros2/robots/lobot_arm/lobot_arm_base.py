@@ -19,6 +19,7 @@ class LobotArmBase(abc.ABC):
     """Base Lobot Arm"""
 
     class Observation:
+        target_joint_state: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
         position_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
         velocity_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
         noiseless_position_data: numpy.ndarray = numpy.array([0.0, 0.0, 0.0])
@@ -36,6 +37,7 @@ class LobotArmBase(abc.ABC):
         self.__joint_state_sub = self.node.create_subscription(JointState, "/joint_states",
                                                                self.__joint_state_subscription_callback,
                                                                qos_profile=qos_profile_parameters)
+        # parameters = keep_last (1000), reliable, all else default
         self._latest_joint_state_msg = None
         self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
 
@@ -58,6 +60,7 @@ class LobotArmBase(abc.ABC):
         vel_arr = numpy.array(message.velocity)
         obs.noiseless_position_data = pos_arr
         obs.noiseless_velocity_data = vel_arr
+        obs.target_joint_state = self._target_joint_state
         if self.state_noise_sigma is not None and self.state_noise_mu is not None:
             pos_noise = numpy.random.normal(self.state_noise_mu, self.state_noise_sigma, pos_arr.size)
             vel_noise = numpy.random.normal(0.0, self.state_noise_sigma*2, vel_arr.size)
@@ -80,10 +83,6 @@ class LobotArmBase(abc.ABC):
 
     @abc.abstractmethod
     def get_action_space(self):
-        pass
-
-    @abc.abstractmethod
-    def get_observation_space(self):
         pass
 
     @abc.abstractmethod

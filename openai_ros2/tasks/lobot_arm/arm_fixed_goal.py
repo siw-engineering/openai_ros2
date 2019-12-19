@@ -86,7 +86,7 @@ class LobotArmFixedGoal:
     def __get_coords(self, joint_states: numpy.ndarray) -> numpy.ndarray:
         if len(joint_states) != 3:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
-            return numpy.array([0, 0, 0])
+            return numpy.array([0.0, 0.0, 0.0])
 
-        res = self.__fk.calculate('world', 'arm_3_link', joint_states)
+        res = self.__fk.calculate('world', 'grip_end_point', joint_states)
         return numpy.array([res.translation.x, res.translation.y, res.translation.z])

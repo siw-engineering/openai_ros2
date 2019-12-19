@@ -9,7 +9,7 @@ from openai_ros2.utils import ut_param_server
 from openai_ros2.utils.gazebo import Gazebo
 
 import rclpy
-from rclpy.qos import qos_profile_sensor_data, qos_profile_services_default
+from rclpy.qos import qos_profile_services_default, qos_profile_parameters
 from rclpy.time import Time as rclpyTime
 
 from ros2_control_interfaces.msg import JointControl
@@ -34,10 +34,10 @@ class LobotArmSim(LobotArmBase):
         self.robot_name = robot_names[0]
         self._joint_names = ut_param_server.get_joints(self.node, self.robot_name)
         joint_control_topic = '/' + self.robot_name + '/control'
-        self._control_pub = self.node.create_publisher(JointControl, joint_control_topic, qos_profile_services_default)
+        self._control_pub = self.node.create_publisher(JointControl, joint_control_topic, qos_profile_parameters)
         self._contact_sub = self.node.create_subscription(ContactsState, f"/{self.robot_name}/contacts",
                                                           self.__contact_subscription_callback,
-                                                          qos_profile=qos_profile_sensor_data)
+                                                          qos_profile=qos_profile_services_default)
 
         self._latest_contact_msg = None
         self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
@@ -75,10 +75,6 @@ class LobotArmSim(LobotArmBase):
 
     def get_action_space(self):
         return Box(-1, 1, shape=(3,))
-
-    def get_observation_space(self):
-        return Box(numpy.array([-2.356, -1.57, -1.57, -3, -3, -3]),
-                   numpy.array([2.356, 0.5, 1.57, 3, 3, 3]))
 
     '''-------------PUBLIC METHODS END-------------'''
 

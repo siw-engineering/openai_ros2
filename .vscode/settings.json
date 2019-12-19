@@ -12,5 +12,12 @@
     "python.linting.banditEnabled": false,
     "python.linting.flake8Enabled": true,
     "python.linting.pycodestyleEnabled": false,
-    "python.linting.flake8Args": ["--max-line-length=120", "--ignore=D100, D107, D102, D105"]
+    "python.linting.flake8Args": [
+        "--max-line-length=120",
+        "--ignore=D100, D107, D102, D105"
+    ],
+    "ros.distro": "dashing",
+    "python.autoComplete.extraPaths": [
+        "/opt/ros/dashing/lib/python3.6/site-packages"
+    ]
 }
