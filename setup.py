@@ -25,7 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'biped_random = examples.biped_random:main',
-            'robot_arm_random = examples.robot_arm_random:main',
+            'robot_arm_random_discrete = examples.robot_arm_random_discrete:main',
             'robot_arm_random_continuous = examples.robot_arm_random_continuous:main'
         ],
     },
