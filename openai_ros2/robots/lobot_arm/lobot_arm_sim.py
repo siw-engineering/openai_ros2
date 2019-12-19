@@ -28,6 +28,7 @@ class LobotArmSim(LobotArmBase):
     def __init__(self, node):
         self._gazebo = Gazebo()
         super().__init__(node)
+        self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
         # Get robot name from parameter server, this is to ensure that the gazebo plugin subscribing to the control
         # reads the same name as this code, because the topic depends on the robot name
         robot_names = ut_param_server.get_robots(self.node)
@@ -35,7 +36,7 @@ class LobotArmSim(LobotArmBase):
         self._joint_names = ut_param_server.get_joints(self.node, self.robot_name)
         joint_control_topic = '/' + self.robot_name + '/control'
         self._control_pub = self.node.create_publisher(JointControl, joint_control_topic, qos_profile_parameters)
-        self._contact_sub = self.node.create_subscription(ContactsState, f"/{self.robot_name}/contacts",
+        self._contact_sub = self.node.create_subscription(ContactsState, f'/{self.robot_name}/contacts',
                                                           self.__contact_subscription_callback,
                                                           qos_profile=qos_profile_services_default)
 
@@ -52,7 +53,7 @@ class LobotArmSim(LobotArmBase):
         :param action:
         :return: obs, reward, done, info
         """
-        assert len(action) == 3, f"{len(action)} actions passed to LobotArmSim, expected: 3"
+        assert len(action) == 3, f'{len(action)} actions passed to LobotArmSim, expected: 3'
         assert action.shape == (3,), f'Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}'
 
         self._target_joint_state += action  # TODO change from += to = and investigate the effects
@@ -129,3 +130,21 @@ class LobotArmSim(LobotArmBase):
             self._current_sim_time = srv_time
         self._previous_update_sim_time = current_sim_time
 
+    def _get_current_sim_time_from_srv(self) -> rclpyTime:
+        client = self.node.create_client(GetCurrentSimTime, "/get_current_sim_time")
+        req = GetCurrentSimTime.Request()
+        retry_count = 0
+        while not client.wait_for_service(timeout_sec=1.0) and retry_count < 10:
+            self.node.get_logger().info('/get_current_sim_time service not available, waiting again...')
+            retry_count += 1
+
+        future = client.call_async(req)
+        rclpy.spin_until_future_complete(self.node, future)
+        if future.result() is not None:
+            current_sim_time_sec = future.result().sec
+            current_sim_time_nsec = future.result().nanosec
+            current_sim_time = rclpyTime(seconds=current_sim_time_sec, nanoseconds=current_sim_time_nsec)
+            return current_sim_time
+        else:
+            self.node.get_logger().warn('/get_current_sim_time service call failed')
+            return rclpyTime()

@@ -10,8 +10,6 @@ import rclpy
 from rclpy.qos import qos_profile_parameters
 from rclpy.time import Time as rclpyTime
 
-from ros2_control_interfaces.srv import GetCurrentSimTime
-
 from sensor_msgs.msg import JointState
 
 
@@ -34,7 +32,7 @@ class LobotArmBase(abc.ABC):
         self.node: rclpy.Node = node
         self.state_noise_mu = state_noise_mu
         self.state_noise_sigma = state_noise_sigma
-        self.__joint_state_sub = self.node.create_subscription(JointState, "/joint_states",
+        self.__joint_state_sub = self.node.create_subscription(JointState, '/joint_states',
                                                                self.__joint_state_subscription_callback,
                                                                qos_profile=qos_profile_parameters)
         # parameters = keep_last (1000), reliable, all else default
@@ -43,7 +41,6 @@ class LobotArmBase(abc.ABC):
 
         self._previous_update_sim_time = rclpyTime()
         self._current_sim_time = rclpyTime()
-        self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
 
     def get_observations(self) -> Observation:
 
@@ -63,7 +60,7 @@ class LobotArmBase(abc.ABC):
         obs.target_joint_state = self._target_joint_state
         if self.state_noise_sigma is not None and self.state_noise_mu is not None:
             pos_noise = numpy.random.normal(self.state_noise_mu, self.state_noise_sigma, pos_arr.size)
-            vel_noise = numpy.random.normal(0.0, self.state_noise_sigma*2, vel_arr.size)
+            vel_noise = numpy.random.normal(0.0, self.state_noise_sigma * 2, vel_arr.size)
             obs.position_data = pos_arr + pos_noise
             obs.velocity_data = vel_arr + vel_noise
         else:
@@ -106,22 +103,3 @@ class LobotArmBase(abc.ABC):
                                     nanoseconds=message.header.stamp.nanosec)
         if self._current_sim_time < latest_msg_time:
             self._current_sim_time = latest_msg_time
-
-    def _get_current_sim_time_from_srv(self) -> rclpyTime:
-        client = self.node.create_client(GetCurrentSimTime, "/get_current_sim_time")
-        req = GetCurrentSimTime.Request()
-        retry_count = 0
-        while not client.wait_for_service(timeout_sec=1.0) and retry_count < 10:
-            self.node.get_logger().info('/get_current_sim_time service not available, waiting again...')
-            retry_count += 1
-
-        future = client.call_async(req)
-        rclpy.spin_until_future_complete(self.node, future)
-        if future.result() is not None:
-            current_sim_time_sec = future.result().sec
-            current_sim_time_nsec = future.result().nanosec
-            current_sim_time = rclpyTime(seconds=current_sim_time_sec, nanoseconds=current_sim_time_nsec)
-            return current_sim_time
-        else:
-            self.node.get_logger().warn('/get_current_sim_time service call failed')
-            return rclpyTime()

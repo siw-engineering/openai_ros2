@@ -7,14 +7,14 @@
     "python.testing.pytestEnabled": true,
     "python.linting.pylintEnabled": false,
     "python.linting.enabled": true,
-    "python.pythonPath": "/home/pohzhiee/anaconda3/envs/tf1-14_gpu/bin/python",
+    "python.pythonPath": "/usr/bin/python3",
     "python.linting.mypyEnabled": false,
     "python.linting.banditEnabled": false,
     "python.linting.flake8Enabled": true,
     "python.linting.pycodestyleEnabled": false,
     "python.linting.flake8Args": [
-        "--max-line-length=120",
-        "--ignore=D100, D107, D102, D105"
+        "--max-line-length=150",
+        "--ignore=D100, D107, D102, D105, D400, Q001"
     ],
     "ros.distro": "dashing",
     "python.autoComplete.extraPaths": [

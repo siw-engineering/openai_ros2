@@ -10,8 +10,6 @@ from openai_ros2.robots import LobotArmSim, LobotArmBase
 from openai_ros2.utils import ut_launch
 from openai_ros2.tasks import LobotArmRandomGoal, LobotArmFixedGoal
 
-import psutil
-
 import rclpy
 
 
@@ -20,11 +18,12 @@ class LobotArmEnv(gym.Env):
 
     def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None):
         ut_launch.set_network_env_vars()
-        os.environ["RMW_IMPLEMENTATION"] = 'rmw_opensplice_cpp'
+        os.environ['RMW_IMPLEMENTATION'] = 'rmw_opensplice_cpp'
+        # Check if rclpy has been initialised before
         context = rclpy.get_default_context()
         if not context.ok():
             rclpy.init()
-        sim_time_param= rclpy.parameter.Parameter("use_sim_time", value=True)
+        sim_time_param = rclpy.parameter.Parameter('use_sim_time', value=True)
         self.node = rclpy.node.Node(robot_cls.__name__, parameter_overrides=[sim_time_param])
         # self.node.set_parameters([sim_time])
         self.__robot: LobotArmBase = robot_cls(self.node)
@@ -42,7 +41,6 @@ class LobotArmEnv(gym.Env):
     def step(self, action: numpy.ndarray) -> Tuple[numpy.ndarray, float, bool, dict]:
         self.__robot.set_action(action)
         robot_state: LobotArmBase.Observation = self.__robot.get_observations()
-        # Currently the exposed observation is: joint_state, joint_vel, target_joint_state, so combine with target_coords to form (12,) array
         if isinstance(self.__task, LobotArmFixedGoal):
             obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data, robot_state.target_joint_state))
         elif isinstance(self.__task, LobotArmRandomGoal):
