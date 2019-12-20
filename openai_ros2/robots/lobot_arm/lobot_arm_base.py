@@ -88,14 +88,6 @@ class LobotArmBase(abc.ABC):
 
     '''-------------PUBLIC METHODS END-------------'''
 
-    '''-------------PRIVATE METHODS START-------------'''
-
-    def _reset_state(self) -> None:
-        self._latest_contact_msg = None
-        self._latest_joint_state_msg = None
-        self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
-
-        self._current_sim_time = rclpyTime()
 
     def __joint_state_subscription_callback(self, message: JointState) -> None:
         self._latest_joint_state_msg = message
