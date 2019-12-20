@@ -63,18 +63,18 @@ def spawn_target_marker(node: rclpy.node.Node, x: float, y: float, z: float) -> 
 
 
 def __spawn_entity(node, entity_xml, initial_pose, name) -> bool:
-    node.get_logger().info('Waiting for service /spawn_entity')
+    node.get_logger().debug('Waiting for service /spawn_entity')
     client = node.create_client(SpawnEntity, '/spawn_entity')
     if client.wait_for_service(timeout_sec=5.0):
         req = SpawnEntity.Request()
         req.name = name
         req.xml = entity_xml
         req.initial_pose = initial_pose
-        node.get_logger().info('Calling service /spawn_entity')
+        node.get_logger().debug('Calling service /spawn_entity')
         srv_call = client.call_async(req)
         while rclpy.ok():
             if srv_call.done():
-                node.get_logger().info('Spawn status: %s' % srv_call.result().status_message)
+                node.get_logger().debug('Spawn status: %s' % srv_call.result().status_message)
                 break
             rclpy.spin_once(node)
         return srv_call.result().success

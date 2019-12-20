@@ -1,10 +1,14 @@
 import numpy
-import math
+
 from openai_ros2.utils import forward_kinematics_py as fk
 from openai_ros2.utils import ut_gazebo
 from openai_ros2.robots import LobotArmSim
 from ament_index_python.packages import get_package_share_directory
+
+from gym.spaces import Box
+
 import os
+
 import rclpy
 
 
@@ -14,7 +18,7 @@ class LobotArmFixedGoal:
         self.robot = robot
 
         # The target coords is currently arbitrarily set to some point achievable
-        # This is the target for grip_end_point when target joint values are: [1.00, -1.01, 1.01]
+        # This is the target for grip_end_point when target joint values are: [1.00, -1.00, 1.00]
         target_x = 0.10175
         target_y = -0.05533
         target_z = 0.1223
@@ -30,7 +34,7 @@ class LobotArmFixedGoal:
         arm_urdf_path = os.path.join(lobot_desc_share_path, "robots/arm_standalone.urdf")
         self.__fk = fk.ForwardKinematics(arm_urdf_path)
 
-    def is_done(self, joint_states: numpy.ndarray, contact_count: int, time_step: int = -1) -> bool:
+    def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
         # If there is any contact (collision), we consider the episode done
         if contact_count > 0:
             return True
@@ -40,6 +44,27 @@ class LobotArmFixedGoal:
 
         # Highest done priority is if time step exceeds limit, so we check this first
         if time_step > self.__max_time_step:
+            return True
+
+        # Check that joint values are not approaching limits
+        upper_bound = observation_space.high[:3]  # First 3 values are the joint states
+        lower_bound = observation_space.low[:3]
+        min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
+        min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
+        # Basically how close to the joint limits can the joints go,
+        # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
+        accepted_dist_to_bounds = 0.001
+        if min_dist_to_lower_bound < accepted_dist_to_bounds:
+            joint_index = abs(joint_states - lower_bound).argmin()
+            print(f'Joint {joint_index} approach joint limits, '
+                  f'current joint value: {joint_states[joint_index]}, '
+                  f'minimum joint value: {lower_bound[joint_index]}')
+            return True
+        if min_dist_to_upper_bound < accepted_dist_to_bounds:
+            joint_index = abs(joint_states - upper_bound).argmin()
+            print(f'Joint {joint_index} approach joint limits, '
+                  f'current joint value: {joint_states[joint_index]}, '
+                  f'maximum joint value: {upper_bound[joint_index]}')
             return True
 
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done

@@ -49,7 +49,7 @@ class LobotArmEnv(gym.Env):
             raise Exception(f'Task expects LobotArmFixedGoal or LobotArmRandomGoal, but received task of type {type(self.__task)}')
 
         reward = self.__task.compute_reward(robot_state.noiseless_position_data, self.__step_num)
-        done = self.__task.is_done(robot_state.noiseless_position_data, robot_state.contact_count, self.__step_num)
+        done = self.__task.is_done(robot_state.noiseless_position_data, robot_state.contact_count, self.observation_space, self.__step_num)
         info: dict = {}
         self.__cumulated_episode_reward += reward
         self.__step_num += 1
@@ -64,7 +64,7 @@ class LobotArmEnv(gym.Env):
         self.__step_num = 0
         self.__episode_num += 1
         self.__cumulated_episode_reward = 0
-        return numpy.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        return numpy.zeros(self.observation_space.shape, dtype=float)
 
     def close(self):
         print('Closing ' + self.__class__.__name__ + ' environment.')

@@ -4,6 +4,7 @@ from openai_ros2.utils import forward_kinematics_py as fk
 from openai_ros2.utils import ut_launch, ut_gazebo
 from openai_ros2.robots import LobotArmSim
 from ament_index_python.packages import get_package_share_directory
+from gym.spaces import Box
 import os
 import rclpy
 
@@ -27,16 +28,38 @@ class LobotArmRandomGoal:
             spawn_success = ut_gazebo.spawn_target_marker(node, target_x, target_y, target_z)
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
 
-    def is_done(self, joint_states: numpy.ndarray, contact_count: int, time_step: int = -1) -> bool:
+    def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
         # If there is any contact (collision), we consider the episode done
         if contact_count > 0:
             return True
 
         current_coords = self.__get_coords(joint_states)
+
         accepted_error = 0.001
 
         # Highest done priority is if time step exceeds limit, so we check this first
         if time_step > self.__max_time_step:
+            return True
+
+        # Check that joint values are not approaching limits
+        upper_bound = observation_space.high[:3]  # First 3 values are the joint states
+        lower_bound = observation_space.low[:3]
+        min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
+        min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
+        # Basically how close to the joint limits can the joints go,
+        # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
+        accepted_dist_to_bounds = 0.005
+        if min_dist_to_lower_bound < accepted_dist_to_bounds:
+            joint_index = abs(joint_states - lower_bound).argmin()
+            print(f'Joint {joint_index} approach joint limits, '
+                  f'current joint value: {joint_states[joint_index]}, '
+                  f'minimum joint value: {lower_bound[joint_index]}')
+            return True
+        if min_dist_to_upper_bound < accepted_dist_to_bounds:
+            joint_index = abs(joint_states - upper_bound).argmin()
+            print(f'Joint {joint_index} approach joint limits, '
+                  f'current joint value: {joint_states[joint_index]}, '
+                  f'maximum joint value: {upper_bound[joint_index]}')
             return True
 
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
@@ -71,13 +94,12 @@ class LobotArmRandomGoal:
 
     def reset(self):
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
-        ut_gazebo.remove_target_marker(self.node)
         self.target_coords = self.__generate_target_coords()
         if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
             # Repawn the target marker if it is simulated
             success, status = ut_gazebo.remove_target_marker(self.node)
-            self.node.get_logger().info(f'Delete marker success: {success}, status: {status}')
-            spawn_success = ut_gazebo.spawn_target_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2])
+            self.node.get_logger().debug(f'Delete marker success: {success}, status: {status}')
+            ut_gazebo.spawn_target_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2])
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:
