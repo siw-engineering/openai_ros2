@@ -57,7 +57,7 @@ class LobotArmSim(LobotArmBase):
         assert action.shape == (3,), f'Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}'
 
         self._target_joint_state += action  # TODO change from += to = and investigate the effects
-        self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, -1.570796])
+        self._target_joint_state = self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, -1.570796])
 
         msg = JointControl()
         msg.joints = self._joint_names
@@ -128,6 +128,9 @@ class LobotArmSim(LobotArmBase):
             self.node.get_logger().warn(f"Wait for simulation loop timeout, getting time from service instead")
             self.node.get_logger().warn(f'Current sim time: {current_sim_time.nanoseconds}, time from service: {srv_time.nanoseconds}')
             self._current_sim_time = srv_time
+            for i in range(10):
+                rclpy.spin_once(self.node, timeout_sec=0.1)
+        rclpy.spin_once(self.node, timeout_sec=0.005)
         self._previous_update_sim_time = current_sim_time
 
     def _get_current_sim_time_from_srv(self) -> rclpyTime:

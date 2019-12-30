@@ -41,9 +41,9 @@ class LobotArmBase(abc.ABC):
 
         self._previous_update_sim_time = rclpyTime()
         self._current_sim_time = rclpyTime()
+        self._latest_contact_msg = None
 
     def get_observations(self) -> Observation:
-
         message: JointState = self._latest_joint_state_msg
         obs = LobotArmBase.Observation()
         if message is None:

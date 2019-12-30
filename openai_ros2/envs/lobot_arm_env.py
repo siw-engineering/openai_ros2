@@ -18,7 +18,7 @@ class LobotArmEnv(gym.Env):
 
     def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None):
         ut_launch.set_network_env_vars()
-        os.environ['RMW_IMPLEMENTATION'] = 'rmw_opensplice_cpp'
+        # os.environ['RMW_IMPLEMENTATION'] = 'rmw_opensplice_cpp'
         # Check if rclpy has been initialised before
         context = rclpy.get_default_context()
         if not context.ok():

@@ -11,7 +11,7 @@ def main(args=None):
     # v1 - state noise, fixed goal
     # v2 - no noise, random goal
     # v3 - state noise, random goal
-    env: LobotArmEnv = gym.make('LobotArmContinuous-v2')
+    env: LobotArmEnv = gym.make('LobotArmContinuousBullet-v0')
     action_space: Type[Box] = env.action_space
     while True:
         print("-------------Starting----------------")

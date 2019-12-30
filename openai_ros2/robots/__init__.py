@@ -1,3 +1,4 @@
 from openai_ros2.robots.lobot_arm.lobot_arm_base import LobotArmBase
 from openai_ros2.robots.lobot_arm.lobot_arm_sim import LobotArmSim
 from openai_ros2.robots.lobot_arm.lobot_arm_sim_discrete import LobotArmSimDiscrete
+from openai_ros2.robots.lobot_arm.lobot_arm_pybullet import LobotArmPybullet
