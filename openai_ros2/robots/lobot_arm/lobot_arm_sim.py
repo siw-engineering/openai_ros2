@@ -71,6 +71,8 @@ class LobotArmSim(LobotArmBase):
     def reset(self) -> None:
         self._gazebo.pause_sim()
         self._gazebo.reset_sim()
+        for i in range(10):
+            rclpy.spin_once(self.node, timeout_sec=0.1)
         self._reset_state()
         # No unpause here because it is assumed that the set_action will unpause it
 
@@ -114,7 +116,7 @@ class LobotArmSim(LobotArmBase):
             current_sim_time = copy.copy(self._current_sim_time)
             time_diff_ns = current_sim_time.nanoseconds - self._previous_update_sim_time.nanoseconds
             if time_diff_ns < 0:
-                print("Negative time difference detected, probably due to a reset")
+                # print("Negative time difference detected, probably due to a reset")
                 self._previous_update_sim_time = rclpyTime()
                 time_diff_ns = current_sim_time.nanoseconds
             loop_end_time = time.time()
@@ -128,9 +130,8 @@ class LobotArmSim(LobotArmBase):
             self.node.get_logger().warn(f"Wait for simulation loop timeout, getting time from service instead")
             self.node.get_logger().warn(f'Current sim time: {current_sim_time.nanoseconds}, time from service: {srv_time.nanoseconds}')
             self._current_sim_time = srv_time
-            for i in range(10):
+            for i in range(20):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
-        rclpy.spin_once(self.node, timeout_sec=0.005)
         self._previous_update_sim_time = current_sim_time
 
     def _get_current_sim_time_from_srv(self) -> rclpyTime:

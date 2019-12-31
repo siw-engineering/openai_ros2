@@ -4,8 +4,6 @@ from gazebo_msgs.msg import ContactsState
 
 import numpy
 
-from openai_ros2.utils import ut_param_server
-
 import rclpy
 from rclpy.qos import qos_profile_parameters
 from rclpy.time import Time as rclpyTime
@@ -88,6 +86,13 @@ class LobotArmBase(abc.ABC):
 
     '''-------------PUBLIC METHODS END-------------'''
 
+    def _reset_state(self) -> None:
+        self._latest_joint_state_msg = None
+        self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
+
+        self._previous_update_sim_time = rclpyTime()
+        self._current_sim_time = rclpyTime()
+        self._latest_contact_msg = None
 
     def __joint_state_subscription_callback(self, message: JointState) -> None:
         self._latest_joint_state_msg = message
