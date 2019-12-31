@@ -110,7 +110,7 @@ class LobotArmSim(LobotArmBase):
         timeout_duration = 0.3
         loop_start_time = time.time()
         while True:
-            # spinning the node will cause self.__current_sim_time to be updated
+            # spinning the node will cause self._current_sim_time to be updated
             rclpy.spin_once(self.node, timeout_sec=0.3)
 
             current_sim_time = copy.copy(self._current_sim_time)
@@ -132,6 +132,7 @@ class LobotArmSim(LobotArmBase):
             self._current_sim_time = srv_time
             for i in range(20):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
+                current_sim_time = copy.copy(self._current_sim_time)
         self._previous_update_sim_time = current_sim_time
 
     def _get_current_sim_time_from_srv(self) -> rclpyTime:
