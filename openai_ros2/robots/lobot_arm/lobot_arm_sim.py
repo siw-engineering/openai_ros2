@@ -107,11 +107,11 @@ class LobotArmSim(LobotArmBase):
         # Loop to block such that when we take observation it is the latest observation when the
         # simulation is paused due to the gym training plugin
         # Also have a timeout such that when the loop gets stuck it will break itself out
-        timeout_duration = 0.3
+        timeout_duration = 1.5
         loop_start_time = time.time()
         while True:
             # spinning the node will cause self._current_sim_time to be updated
-            rclpy.spin_once(self.node, timeout_sec=0.3)
+            rclpy.spin_once(self.node, timeout_sec=0.5)
 
             current_sim_time = copy.copy(self._current_sim_time)
             time_diff_ns = current_sim_time.nanoseconds - self._previous_update_sim_time.nanoseconds

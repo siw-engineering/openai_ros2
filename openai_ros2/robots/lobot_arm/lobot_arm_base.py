@@ -5,7 +5,8 @@ from gazebo_msgs.msg import ContactsState
 import numpy
 
 import rclpy
-from rclpy.qos import qos_profile_parameters
+from rclpy.qos import qos_profile_parameters, QoSProfile, QoSHistoryPolicy, QoSReliabilityPolicy
+import rclpy.qos
 from rclpy.time import Time as rclpyTime
 
 from sensor_msgs.msg import JointState
@@ -30,9 +31,10 @@ class LobotArmBase(abc.ABC):
         self.node: rclpy.Node = node
         self.state_noise_mu = state_noise_mu
         self.state_noise_sigma = state_noise_sigma
+        qos_profile = QoSProfile(reliability=1, depth=100)
         self.__joint_state_sub = self.node.create_subscription(JointState, '/joint_states',
                                                                self.__joint_state_subscription_callback,
-                                                               qos_profile=qos_profile_parameters)
+                                                               qos_profile=qos_profile)
         # parameters = keep_last (1000), reliable, all else default
         self._latest_joint_state_msg = None
         self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
@@ -98,5 +100,6 @@ class LobotArmBase(abc.ABC):
         self._latest_joint_state_msg = message
         latest_msg_time = rclpyTime(seconds=message.header.stamp.sec,
                                     nanoseconds=message.header.stamp.nanosec)
+        # print(f'[{message.header.stamp.sec}][{message.header.stamp.nanosec}]')
         if self._current_sim_time < latest_msg_time:
             self._current_sim_time = latest_msg_time
