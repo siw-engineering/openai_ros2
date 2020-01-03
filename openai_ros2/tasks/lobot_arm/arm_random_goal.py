@@ -96,10 +96,8 @@ class LobotArmRandomGoal:
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.target_coords = self.__generate_target_coords()
         if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
-            # Repawn the target marker if it is simulated
-            success, status = ut_gazebo.remove_target_marker(self.node)
-            self.node.get_logger().debug(f'Delete marker success: {success}, status: {status}')
-            ut_gazebo.spawn_target_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2])
+            # Move the target marker if it is simulated
+            ut_gazebo.move_target_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2])
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:

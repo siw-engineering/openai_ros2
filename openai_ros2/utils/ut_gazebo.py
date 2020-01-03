@@ -10,7 +10,7 @@ from gazebo_msgs.srv import DeleteEntity
 from xml.etree import ElementTree
 from geometry_msgs.msg import Pose
 from gazebo_msgs.srv import SpawnEntity
-
+from ros2_control_interfaces.srv import MoveModel
 
 def remove_target_marker(node: rclpy.node.Node) -> Tuple[bool, str]:
     remove_marker_client = node.create_client(DeleteEntity, "/delete_entity", qos_profile=qos_profile_services_default)
@@ -29,6 +29,30 @@ def remove_target_marker(node: rclpy.node.Node) -> Tuple[bool, str]:
     else:
         node.get_logger().warn(f'Service call failed {future.exception}')
         return False, ''
+
+
+def move_target_marker(node: rclpy.node.Node, x: float, y: float, z: float) -> bool:
+    node.get_logger().debug('Waiting for service /move_model')
+    client = node.create_client(MoveModel, '/move_model')
+    if client.wait_for_service(timeout_sec=5.0):
+        req = MoveModel.Request()
+        req.name = "target_marker"
+        req.x = x
+        req.y = y
+        req.z = z
+        req.roll = 0.0
+        req.pitch = 0.0
+        req.yaw = 0.0
+        node.get_logger().debug('Calling service /move_model')
+        srv_call = client.call_async(req)
+        while rclpy.ok():
+            if srv_call.done():
+                node.get_logger().debug('Move status: %s' % srv_call.result().status_message)
+                break
+            rclpy.spin_once(node)
+        return srv_call.result().success
+    node.get_logger().error('Service /move_model unavailable')
+    return False
 
 
 def spawn_target_marker(node: rclpy.node.Node, x: float, y: float, z: float) -> bool:

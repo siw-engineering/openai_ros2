@@ -55,9 +55,8 @@ class LobotArmSim(LobotArmBase):
         """
         assert len(action) == 3, f'{len(action)} actions passed to LobotArmSim, expected: 3'
         assert action.shape == (3,), f'Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}'
-
         self._target_joint_state += action  # TODO change from += to = and investigate the effects
-        self._target_joint_state = self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, -1.570796])
+        self._target_joint_state = self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, 1.570796])
 
         msg = JointControl()
         msg.joints = self._joint_names
