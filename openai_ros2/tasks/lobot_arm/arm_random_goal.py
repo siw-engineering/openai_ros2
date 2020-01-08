@@ -23,9 +23,10 @@ class LobotArmRandomGoal:
         target_x = self.target_coords[0]
         target_y = self.target_coords[1]
         target_z = self.target_coords[2]
-        if isinstance(robot, LobotArmSim):  # Check if is simulator or real
-            # Repawn the target marker if it is simulated
-            spawn_success = ut_gazebo.spawn_target_marker(node, target_x, target_y, target_z)
+        if isinstance(robot, LobotArmSim):  # Check if is gazebo
+            # Spawn the target marker if it is gazebo
+            print(f'Spawning to: {(target_x, target_y, target_z)}')
+            spawn_success = ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.02)
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
 
     def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
@@ -96,8 +97,10 @@ class LobotArmRandomGoal:
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.target_coords = self.__generate_target_coords()
         if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
-            # Move the target marker if it is simulated
-            ut_gazebo.move_target_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2])
+            # Move the target marker if it is gazebo
+            print(f'Moving to {(self.target_coords[0], self.target_coords[1], self.target_coords[2])}')
+            spawn_success = ut_gazebo.create_marker(self.node, self.target_coords[0],
+                                                    self.target_coords[1], self.target_coords[2], diameter=0.004)
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:

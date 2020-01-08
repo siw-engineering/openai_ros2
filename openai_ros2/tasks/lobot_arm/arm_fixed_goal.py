@@ -24,9 +24,7 @@ class LobotArmFixedGoal:
         target_z = 0.1223
         if isinstance(robot, LobotArmSim):  # Check if is simulator or real
             # Repawn the target marker if it is simulated
-            success, status = ut_gazebo.remove_target_marker(node)
-            node.get_logger().info(f'Delete marker success: {success}, status: {status}')
-            ut_gazebo.spawn_target_marker(node, target_x, target_y, target_z)
+            ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.02)
         self.target_coords = numpy.array([target_x, target_y, target_z])
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.__max_time_step = max_time_step

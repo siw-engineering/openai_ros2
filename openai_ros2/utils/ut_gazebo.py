@@ -10,40 +10,22 @@ from gazebo_msgs.srv import DeleteEntity
 from xml.etree import ElementTree
 from geometry_msgs.msg import Pose
 from gazebo_msgs.srv import SpawnEntity
-from ros2_control_interfaces.srv import MoveModel
+from ros2_control_interfaces.srv import CreateMarker
 
-def remove_target_marker(node: rclpy.node.Node) -> Tuple[bool, str]:
-    remove_marker_client = node.create_client(DeleteEntity, "/delete_entity", qos_profile=qos_profile_services_default)
-    req1 = DeleteEntity.Request()
-    req1.name = 'target_marker'
-    while not remove_marker_client.wait_for_service(timeout_sec=3.0):
-        node.get_logger().warn('/delete_entity service not available, check that Gazebo is launched properly, waiting again...')
-
-    future = remove_marker_client.call_async(req1)
-    rclpy.spin_until_future_complete(node, future)
-    if future.result() is not None:
-        result: DeleteEntity.Response = future.result()
-        success = result.success
-        status_msg = result.status_message
-        return success, status_msg
-    else:
-        node.get_logger().warn(f'Service call failed {future.exception}')
-        return False, ''
-
-
-def move_target_marker(node: rclpy.node.Node, x: float, y: float, z: float) -> bool:
-    node.get_logger().debug('Waiting for service /move_model')
-    client = node.create_client(MoveModel, '/move_model')
+def create_marker(node: rclpy.node.Node, x: float, y: float, z: float, diameter: float = 0.02, id: int = 0) -> bool:
+    node.get_logger().debug('Waiting for service /create_marker')
+    client = node.create_client(CreateMarker, '/create_marker')
     if client.wait_for_service(timeout_sec=5.0):
-        req = MoveModel.Request()
-        req.name = "target_marker"
+        req = CreateMarker.Request()
+        req.id = id
+        req.diameter = diameter
         req.x = x
         req.y = y
         req.z = z
         req.roll = 0.0
         req.pitch = 0.0
         req.yaw = 0.0
-        node.get_logger().debug('Calling service /move_model')
+        node.get_logger().debug('Calling service /create_marker')
         srv_call = client.call_async(req)
         while rclpy.ok():
             if srv_call.done():
@@ -51,57 +33,5 @@ def move_target_marker(node: rclpy.node.Node, x: float, y: float, z: float) -> b
                 break
             rclpy.spin_once(node)
         return srv_call.result().success
-    node.get_logger().error('Service /move_model unavailable')
-    return False
-
-
-def spawn_target_marker(node: rclpy.node.Node, x: float, y: float, z: float) -> bool:
-    lobot_desc_share_path = get_package_share_directory('lobot_description')
-    marker_urdf_path = os.path.join(lobot_desc_share_path, 'robots/target_indicator.urdf')
-    try:
-        f = open(marker_urdf_path, 'r')
-        entity_xml = f.read()
-    except IOError as e:
-        node.get_logger().error('Error reading file {}: {}'.format(marker_urdf_path, e))
-        return False
-    if entity_xml == '':
-        node.get_logger().error('Error: file %s is empty', marker_urdf_path)
-        return False
-
-    try:
-        xml_parsed = ElementTree.fromstring(entity_xml)
-    except ElementTree.ParseError as e:
-        node.get_logger().error('Invalid XML: {}'.format(e))
-        return False
-
-    # Form requested Pose from arguments
-    initial_pose = Pose()
-    initial_pose.position.x = x
-    initial_pose.position.y = y
-    initial_pose.position.z = z
-
-    success = __spawn_entity(node, entity_xml, initial_pose, 'target_marker')
-    if not success:
-        node.get_logger().error('Spawn service failed. Exiting.')
-    return success
-
-
-def __spawn_entity(node, entity_xml, initial_pose, name) -> bool:
-    node.get_logger().debug('Waiting for service /spawn_entity')
-    client = node.create_client(SpawnEntity, '/spawn_entity')
-    if client.wait_for_service(timeout_sec=5.0):
-        req = SpawnEntity.Request()
-        req.name = name
-        req.xml = entity_xml
-        req.initial_pose = initial_pose
-        node.get_logger().debug('Calling service /spawn_entity')
-        srv_call = client.call_async(req)
-        while rclpy.ok():
-            if srv_call.done():
-                node.get_logger().debug('Spawn status: %s' % srv_call.result().status_message)
-                break
-            rclpy.spin_once(node)
-        return srv_call.result().success
-    node.get_logger().error(
-        'Service %s/spawn_entity unavailable. Was Gazebo started with GazeboRosFactory?')
+    node.get_logger().error('Service /create_marker unavailable')
     return False
