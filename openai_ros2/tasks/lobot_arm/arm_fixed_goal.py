@@ -1,6 +1,6 @@
 import numpy
 
-from openai_ros2.utils import forward_kinematics_py as fk
+import forward_kinematics_py as fk
 from openai_ros2.utils import ut_gazebo
 from openai_ros2.robots import LobotArmSim
 from ament_index_python.packages import get_package_share_directory

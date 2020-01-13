@@ -13,23 +13,24 @@ from gazebo_msgs.srv import SpawnEntity
 from ros2_control_interfaces.srv import CreateMarker
 
 def create_marker(node: rclpy.node.Node, x: float, y: float, z: float, diameter: float = 0.02, id: int = 0) -> bool:
-    node.get_logger().debug('Waiting for service /create_marker')
-    client = node.create_client(CreateMarker, '/create_marker')
-    if client.wait_for_service(timeout_sec=5.0):
-        req = CreateMarker.Request()
-        req.id = id
-        req.diameter = diameter
-        req.x = x
-        req.y = y
-        req.z = z
-        req.roll = 0.0
-        req.pitch = 0.0
-        req.yaw = 0.0
-        node.get_logger().debug('Calling service /create_marker')
-        srv_call = client.call_async(req)
+    if "client" not in create_marker.__dict__:
+        create_marker.client = node.create_client(CreateMarker, '/create_marker')
+    if "req" not in create_marker.__dict__:
+        create_marker.req = CreateMarker.Request()
+        create_marker.req.roll = 0.0
+        create_marker.req.pitch = 0.0
+        create_marker.req.yaw = 0.0
+    if create_marker.client.wait_for_service(timeout_sec=5.0):
+        create_marker.req.id = id
+        create_marker.req.diameter = diameter
+        create_marker.req.x = x
+        create_marker.req.y = y
+        create_marker.req.z = z
+        # node.get_logger().debug('Calling service /create_marker')
+        srv_call = create_marker.client.call_async(create_marker.req)
         while rclpy.ok():
             if srv_call.done():
-                node.get_logger().debug('Move status: %s' % srv_call.result().status_message)
+                # node.get_logger().debug('Move status: %s' % srv_call.result().status_message)
                 break
             rclpy.spin_once(node)
         return srv_call.result().success
