@@ -1,16 +1,9 @@
-import os
-from typing import Tuple
+from typing import Optional
+import numpy
 import rclpy
 import rclpy.node
-from ament_index_python import get_package_share_directory
-from launch import LaunchDescription
-from launch_ros.actions import Node
-from rclpy.qos import qos_profile_services_default
-from gazebo_msgs.srv import DeleteEntity
-from xml.etree import ElementTree
-from geometry_msgs.msg import Pose
-from gazebo_msgs.srv import SpawnEntity
-from ros2_control_interfaces.srv import CreateMarker
+from ros2_control_interfaces.srv import CreateMarker, RandomPositions
+
 
 def create_marker(node: rclpy.node.Node, x: float, y: float, z: float, diameter: float = 0.02, id: int = 0) -> bool:
     if "client" not in create_marker.__dict__:
@@ -36,3 +29,22 @@ def create_marker(node: rclpy.node.Node, x: float, y: float, z: float, diameter:
         return srv_call.result().success
     node.get_logger().error('Service /create_marker unavailable')
     return False
+
+
+def random_positions(node: rclpy.node.Node) -> Optional[numpy.ndarray]:
+    if "client" not in random_positions.__dict__:
+        random_positions.client = node.create_client(RandomPositions, '/random_positions')
+    if random_positions.client.wait_for_service(timeout_sec=5.0):
+        # node.get_logger().debug('Calling service /create_marker')
+        srv_call = random_positions.client.call_async(RandomPositions.Request())
+        while rclpy.ok():
+            if srv_call.done():
+                break
+            rclpy.spin_once(node)
+        # Sort the joint and position pairs such that arm_1_joint is first, and arm_3_joint is last
+        joint_val_pairs = list(zip(srv_call.result().joints, srv_call.result().positions))
+        joint_val_pairs.sort()
+        positions = [v for _, v in joint_val_pairs]
+        return numpy.array(positions)
+    node.get_logger().error('Service /random_positions unavailable')
+    return None

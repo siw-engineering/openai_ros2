@@ -43,6 +43,14 @@ register(
             }
 )
 register(
+    id='LobotArmContinuous-v4',  # Continuous action space with noise, with random goal
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'random_init_pos': True
+            }
+)
+register(
     id='LobotArmDiscrete-v0',  # Discrete action space no noise
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmFixedGoal,

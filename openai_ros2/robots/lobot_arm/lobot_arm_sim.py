@@ -5,7 +5,7 @@ from gazebo_msgs.msg import ContactsState
 
 import numpy
 
-from openai_ros2.utils import ut_param_server
+from openai_ros2.utils import ut_param_server, ut_gazebo
 from openai_ros2.utils.gazebo import Gazebo
 
 import rclpy
@@ -57,7 +57,6 @@ class LobotArmSim(LobotArmBase):
         assert action.shape == (3,), f'Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}'
         self._target_joint_state += action  # TODO change from += to = and investigate the effects
         self._target_joint_state = self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, 1.570796])
-
         msg = JointControl()
         msg.joints = self._joint_names
         msg.goals = self._target_joint_state.tolist()
@@ -70,8 +69,13 @@ class LobotArmSim(LobotArmBase):
     def reset(self) -> None:
         self._gazebo.pause_sim()
         self._gazebo.reset_sim()
+        if self.random_init_pos:
+            positions = ut_gazebo.random_positions(self.node)
+            if positions is not None:
+                print(f'Random initial positions: {positions}')
+                self._target_joint_state = positions
         for i in range(10):
-            rclpy.spin_once(self.node, timeout_sec=0.1)
+            rclpy.spin_once(self.node, timeout_sec=0.03)
         self._reset_state()
         # No unpause here because it is assumed that the set_action will unpause it
 
@@ -85,7 +89,11 @@ class LobotArmSim(LobotArmBase):
     def _reset_state(self) -> None:
         super()._reset_state()
         self._latest_contact_msg = None
-        self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
+        # We assume that if we do random initial position, the target joint state will be set after we call the random and the positions are obtained
+        # So we only set target_joint_state when is not random_init_pos
+        if not self.random_init_pos:
+            print(f'Setting 0 initial positions')
+            self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
 
         self._previous_update_sim_time = rclpyTime()
 

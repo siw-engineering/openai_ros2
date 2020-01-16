@@ -27,10 +27,11 @@ class LobotArmBase(abc.ABC):
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node, state_noise_mu: float = None, state_noise_sigma: float = None):
+    def __init__(self, node, state_noise_mu: float = None, state_noise_sigma: float = None, random_init_pos: bool = False):
         self.node: rclpy.Node = node
         self.state_noise_mu = state_noise_mu
         self.state_noise_sigma = state_noise_sigma
+        self.random_init_pos = random_init_pos
         qos_profile = QoSProfile(reliability=1, depth=100)
         self.__joint_state_sub = self.node.create_subscription(JointState, '/joint_states',
                                                                self.__joint_state_subscription_callback,
@@ -90,7 +91,7 @@ class LobotArmBase(abc.ABC):
 
     def _reset_state(self) -> None:
         self._latest_joint_state_msg = None
-        self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
+        # self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
 
         self._previous_update_sim_time = rclpyTime()
         self._current_sim_time = rclpyTime()

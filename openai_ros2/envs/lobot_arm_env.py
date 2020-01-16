@@ -16,7 +16,7 @@ import rclpy
 class LobotArmEnv(gym.Env):
     """OpenAI Gym environment for Lobot Arm, utilises continuous action space."""
 
-    def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None):
+    def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None, random_init_pos: bool = False):
         ut_launch.set_network_env_vars()
         os.environ['RMW_IMPLEMENTATION'] = 'rmw_fastrtps_cpp'
         # Check if rclpy has been initialised before
@@ -29,6 +29,7 @@ class LobotArmEnv(gym.Env):
         self.__robot: LobotArmBase = robot_cls(self.node)
         self.__robot.state_noise_mu = state_noise_mu
         self.__robot.state_noise_sigma = state_noise_sigma
+        self.__robot.random_init_pos = random_init_pos
         self.__task = task_cls(self.node, self.__robot)
         self.action_space = self.__robot.get_action_space()
         self.observation_space = self.__get_observation_space()
@@ -77,6 +78,9 @@ class LobotArmEnv(gym.Env):
     def set_state_noise(self, mu: float, sigma: float) -> None:
         self.__robot.state_noise_mu = mu
         self.__robot.state_noise_sigma = sigma
+
+    def set_random_init_pos(self, random: bool = False) -> None:
+        self.__robot.random_init_pos = random
 
     def __get_observation_space(self):
         joint_pos_lower_limit = numpy.array([-2.356, -1.57, -1.57])
