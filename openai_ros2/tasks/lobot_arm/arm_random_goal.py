@@ -1,5 +1,6 @@
 import numpy
 import math
+from typing import Dict
 import forward_kinematics_py as fk
 from openai_ros2.utils import ut_launch, ut_gazebo
 from openai_ros2.robots import LobotArmSim
@@ -10,14 +11,43 @@ import rclpy
 
 
 class LobotArmRandomGoal:
-    def __init__(self, node: rclpy.node.Node, robot, max_time_step: int = 500):
+    def __init__(self, node: rclpy.node.Node, robot, task_kwargs: Dict = None, max_time_step: int = 500):
+        if task_kwargs is None:
+            task_kwargs = dict()
         self.node = node
         self.robot = robot
+        self.accepted_dist_to_bounds = task_kwargs.get('accepted_dist_to_bounds', 0.001)
+        self.accepted_error = task_kwargs.get('accepted_error', 0.001)
+        self.reach_target_bonus_reward = task_kwargs.get('reach_target_bonus_reward', 0.0)
+        self.reach_bounds_penalty = task_kwargs.get('reach_bounds_penalty', 0.0)
+        self.contact_penalty = task_kwargs.get('contact_penalty', 0.0)
+        print(f'------Setting task parameters------')
+        print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
+        print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
+        print('reach_target_bonus_reward: %f # Bonus reward upon reaching target' % self.reach_target_bonus_reward)
+        print('reach_bounds_penalty: %f      # Reward penalty when reaching joint limit' % self.reach_bounds_penalty)
+        print('contact_penalty: %f           # Reward penalty for collision' % self.contact_penalty)
+        print(f'-----------------------------------')
 
-        self.__max_time_step = max_time_step
+        if self.accepted_dist_to_bounds < 0.0:
+            raise Exception("Allowable distance to joint limits should be positive")
+
+        if self.accepted_error < 0.0:
+            raise Exception("Accepted error to end coordinates should be positive")
+
+        if self.reach_target_bonus_reward < 0.0:
+            raise Exception("Reach target bonus reward should be positive")
+
+        if self.contact_penalty < 0.0:
+            raise Exception("Contact penalty should be positive")
+
+        if self.reach_bounds_penalty < 0.0:
+            raise Exception("Reach bounds penalty should be positive")
+
+        self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
         arm_urdf_path = os.path.join(lobot_desc_share_path, "robots/arm_standalone.urdf")
-        self.__fk = fk.ForwardKinematics(arm_urdf_path)
+        self._fk = fk.ForwardKinematics(arm_urdf_path)
 
         self.target_coords = self.__generate_target_coords()
         target_x = self.target_coords[0]
@@ -26,7 +56,7 @@ class LobotArmRandomGoal:
         if isinstance(robot, LobotArmSim):  # Check if is gazebo
             # Spawn the target marker if it is gazebo
             print(f'Spawning to: {(target_x, target_y, target_z)}')
-            spawn_success = ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.02)
+            spawn_success = ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.004)
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
 
     def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
@@ -36,10 +66,8 @@ class LobotArmRandomGoal:
 
         current_coords = self.__get_coords(joint_states)
 
-        accepted_error = 0.001
-
         # Highest done priority is if time step exceeds limit, so we check this first
-        if time_step > self.__max_time_step:
+        if time_step > self._max_time_step:
             return True
 
         # Check that joint values are not approaching limits
@@ -47,16 +75,15 @@ class LobotArmRandomGoal:
         lower_bound = observation_space.low[:3]
         min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
         min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
-        # Basically how close to the joint limits can the joints go,
+        # self.accepted_dist_to_bounds is basically how close to the joint limits can the joints go,
         # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
-        accepted_dist_to_bounds = 0.005
-        if min_dist_to_lower_bound < accepted_dist_to_bounds:
+        if min_dist_to_lower_bound < self.accepted_dist_to_bounds:
             joint_index = abs(joint_states - lower_bound).argmin()
             print(f'Joint {joint_index} approach joint limits, '
                   f'current joint value: {joint_states[joint_index]}, '
                   f'minimum joint value: {lower_bound[joint_index]}')
             return True
-        if min_dist_to_upper_bound < accepted_dist_to_bounds:
+        if min_dist_to_upper_bound < self.accepted_dist_to_bounds:
             joint_index = abs(joint_states - upper_bound).argmin()
             print(f'Joint {joint_index} approach joint limits, '
                   f'current joint value: {joint_states[joint_index]}, '
@@ -65,13 +92,13 @@ class LobotArmRandomGoal:
 
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
         for i in range(3):
-            if abs(self.target_coords[i] - current_coords[i]) > accepted_error:
+            if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
                 return False
         # If all coordinates within acceptance range AND time step within limits, we are done
         print(f"Reached destination, target coords: {self.target_coords}, current coords: {current_coords}")
         return True
 
-    def compute_reward(self, joint_states: numpy.ndarray, time_step: int) -> float:
+    def compute_reward(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box) -> float:
         if len(joint_states) != 3:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
             return -1
@@ -87,10 +114,38 @@ class LobotArmRandomGoal:
             reward = 0.0
         else:
             reward = self.__calc_dist_change(self.previous_coords, current_coords)
-        self.previous_coords = current_coords
 
         # Scale up reward so that it is not so small
-        reward = reward * 100
+        reward *= 100
+        self.previous_coords = current_coords
+
+        # Reward shaping logic
+
+        # Check if it has reached target destination
+        # If any coords out of acceptance range, we set reached to False, else it is True
+        reached_destination = True
+        for i in range(3):
+            if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
+                reached_destination = False
+                break
+        if reached_destination:
+            reward += self.reach_target_bonus_reward
+
+        # Check if it has approached any joint limits
+        upper_bound = observation_space.high[:3]  # First 3 values are the joint states
+        lower_bound = observation_space.low[:3]
+        min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
+        min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
+        # self.accepted_dist_to_bounds is basically how close to the joint limits can the joints go,
+        # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
+        if (min_dist_to_lower_bound < self.accepted_dist_to_bounds) or \
+                (min_dist_to_upper_bound < self.accepted_dist_to_bounds):  # when reached the joint limit
+            reward -= self.reach_bounds_penalty
+
+        # Check if it has any contacts
+        if contact_count > 0:
+            reward -= self.contact_penalty
+
         return reward
 
     def reset(self):
@@ -115,13 +170,13 @@ class LobotArmRandomGoal:
             print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
             return numpy.array([0.0, 0.0, 0.0])
 
-        res = self.__fk.calculate('world', 'grip_end_point', joint_states)
+        res = self._fk.calculate('world', 'grip_end_point', joint_states)
         return numpy.array([res.translation.x, res.translation.y, res.translation.z])
 
     def __generate_target_coords(self) -> numpy.ndarray:
         while True :
             random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
-            res = self.__fk.calculate('world', 'grip_end_point', random_joint_values)
+            res = self._fk.calculate('world', 'grip_end_point', random_joint_values)
             if res.translation.z > 0.0:
                 break
         target_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])

@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Tuple, Dict
 
 import gym
 from gym.spaces import Box
@@ -16,7 +16,11 @@ import rclpy
 class LobotArmEnv(gym.Env):
     """OpenAI Gym environment for Lobot Arm, utilises continuous action space."""
 
-    def __init__(self, robot_cls: type, task_cls: type, state_noise_mu: float = None, state_noise_sigma: float = None, random_init_pos: bool = False):
+    def __init__(self, robot_cls: type, task_cls: type, robot_kwargs: Dict = None, task_kwargs: Dict = None):
+        if task_kwargs is None:
+            task_kwargs = dict()
+        if robot_kwargs is None:
+            robot_kwargs = dict()
         ut_launch.set_network_env_vars()
         os.environ['RMW_IMPLEMENTATION'] = 'rmw_fastrtps_cpp'
         # Check if rclpy has been initialised before
@@ -26,11 +30,8 @@ class LobotArmEnv(gym.Env):
         sim_time_param = rclpy.parameter.Parameter('use_sim_time', value=True)
         self.node = rclpy.node.Node(robot_cls.__name__, parameter_overrides=[sim_time_param])
         # self.node.set_parameters([sim_time])
-        self.__robot: LobotArmBase = robot_cls(self.node)
-        self.__robot.state_noise_mu = state_noise_mu
-        self.__robot.state_noise_sigma = state_noise_sigma
-        self.__robot.random_init_pos = random_init_pos
-        self.__task = task_cls(self.node, self.__robot)
+        self.__robot: LobotArmBase = robot_cls(self.node, robot_kwargs)
+        self.__task = task_cls(self.node, self.__robot, task_kwargs)
         self.action_space = self.__robot.get_action_space()
         self.observation_space = self.__get_observation_space()
         # Set up ROS related variables
@@ -49,7 +50,7 @@ class LobotArmEnv(gym.Env):
         else:
             raise Exception(f'Task expects LobotArmFixedGoal or LobotArmRandomGoal, but received task of type {type(self.__task)}')
 
-        reward = self.__task.compute_reward(robot_state.noiseless_position_data, self.__step_num)
+        reward = self.__task.compute_reward(robot_state.noiseless_position_data, robot_state.contact_count, self.observation_space)
         done = self.__task.is_done(robot_state.noiseless_position_data, robot_state.contact_count, self.observation_space, self.__step_num)
         info: dict = {}
         self.__cumulated_episode_reward += reward

@@ -22,8 +22,10 @@ register(
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmFixedGoal,
             'robot_cls': LobotArmSim,
-            'state_noise_mu': 0,
-            'state_noise_sigma': 0.075
+            'robot_kwargs': {
+                'state_noise_mu': 0,
+                'state_noise_sigma': 0.075
+                }
             }
 )
 register(
@@ -38,8 +40,10 @@ register(
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmRandomGoal,
             'robot_cls': LobotArmSim,
-            'state_noise_mu': 0,
-            'state_noise_sigma': 0.075
+            'robot_kwargs': {
+                'state_noise_mu': 0,
+                'state_noise_sigma': 0.075
+                }
             }
 )
 register(
@@ -47,7 +51,36 @@ register(
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmRandomGoal,
             'robot_cls': LobotArmSim,
-            'random_init_pos': True
+            'robot_kwargs': {
+                'random_init_pos': True
+                }
+            }
+)
+register(
+    id='LobotArmContinuous-v5',  # Continuous action space with noise, with random goal
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'robot_kwargs': {
+                'random_init_pos': True
+                }
+            }
+)
+register(
+    id='LobotArmContinuous-v6',  # Continuous action space with noise, with random goal, with reward shaping
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'robot_kwargs': {
+                'random_init_pos': True
+                },
+            'task_kwargs': {
+                'accepted_dist_to_bounds': 0.001,
+                'accepted_error': 0.001,
+                'reach_target_bonus_reward': 3.0,
+                'reach_bounds_penalty': 5.0,
+                'contact_penalty': 15.0
+                }
             }
 )
 register(
@@ -62,7 +95,9 @@ register(
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmFixedGoal,
             'robot_cls': LobotArmSimDiscrete,
-            'state_noise_mu': 0,
-            'state_noise_sigma': 0.075
+            'robot_kwargs': {
+                'state_noise_mu': 0,
+                'state_noise_sigma': 0.075
+                }
             }
 )

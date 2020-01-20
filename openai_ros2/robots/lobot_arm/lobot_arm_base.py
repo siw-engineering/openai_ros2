@@ -27,11 +27,11 @@ class LobotArmBase(abc.ABC):
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node, state_noise_mu: float = None, state_noise_sigma: float = None, random_init_pos: bool = False):
+    def __init__(self, node, robot_kwargs):
         self.node: rclpy.Node = node
-        self.state_noise_mu = state_noise_mu
-        self.state_noise_sigma = state_noise_sigma
-        self.random_init_pos = random_init_pos
+        self.state_noise_mu = robot_kwargs.get('state_noise_mu', 0.0)
+        self.state_noise_sigma = robot_kwargs.get('state_noise_sigma', 0.0)
+        self.random_init_pos = robot_kwargs.get('random_init_pos', False)
         qos_profile = QoSProfile(reliability=1, depth=100)
         self.__joint_state_sub = self.node.create_subscription(JointState, '/joint_states',
                                                                self.__joint_state_subscription_callback,

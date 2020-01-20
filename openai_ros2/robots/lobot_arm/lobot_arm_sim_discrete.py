@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Dict
 
 import numpy
 
@@ -28,8 +29,10 @@ class LobotArmSimDiscrete(LobotArmSim):
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node):
-        super().__init__(node)
+    def __init__(self, node, robot_kwargs: Dict = None):
+        if robot_kwargs is None:
+            robot_kwargs = dict()
+        super().__init__(node, robot_kwargs)
 
     def set_action(self, action: numpy.ndarray) -> None:
         """

@@ -1,5 +1,6 @@
 import copy
 import time
+from typing import Dict
 
 from gazebo_msgs.msg import ContactsState
 
@@ -25,9 +26,11 @@ class LobotArmSim(LobotArmBase):
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node):
+    def __init__(self, node, robot_kwargs: Dict = None):
+        if robot_kwargs is None:
+            robot_kwargs = dict()
         self._gazebo = Gazebo()
-        super().__init__(node)
+        super().__init__(node, robot_kwargs)
         self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
         # Get robot name from parameter server, this is to ensure that the gazebo plugin subscribing to the control
         # reads the same name as this code, because the topic depends on the robot name
