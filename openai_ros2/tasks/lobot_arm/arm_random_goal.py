@@ -1,5 +1,6 @@
 import numpy
-import math
+import random
+from collections import deque
 from typing import Dict
 import forward_kinematics_py as fk
 from openai_ros2.utils import ut_launch, ut_gazebo
@@ -22,36 +23,29 @@ class LobotArmRandomGoal:
         self.reach_bounds_penalty = task_kwargs.get('reach_bounds_penalty', 0.0)
         self.contact_penalty = task_kwargs.get('contact_penalty', 0.0)
         self.episodes_per_goal = task_kwargs.get('episodes_per_goal', 1)
-        print(f'--------------Setting task parameters--------------')
+        self.goal_buffer_size = task_kwargs.get('goal_buffer_size', 20)
+        self.goal_from_buffer_prob = task_kwargs.get('goal_from_buffer_prob', 0.0)
+        print(f'-------------------------------Setting task parameters-------------------------------')
         print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
         print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
         print('reach_target_bonus_reward: %f # Bonus reward upon reaching target' % self.reach_target_bonus_reward)
         print('reach_bounds_penalty: %f      # Reward penalty when reaching joint limit' % self.reach_bounds_penalty)
         print('contact_penalty: %f           # Reward penalty for collision' % self.contact_penalty)
         print('episodes_per_goal: %d         # Number of episodes before generating another random goal' % self.episodes_per_goal)
-        print(f'---------------------------------------------------')
+        print('goal_buffer_size: %d          # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
+        print('goal_from_buffer_prob: %f     # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
+        print(f'-------------------------------------------------------------------------------------')
 
-        if self.accepted_dist_to_bounds < 0.0:
-            raise Exception('Allowable distance to joint limits should be positive')
-
-        if self.accepted_error < 0.0:
-            raise Exception('Accepted error to end coordinates should be positive')
-
-        if self.reach_target_bonus_reward < 0.0:
-            raise Exception('Reach target bonus reward should be positive')
-
-        if self.contact_penalty < 0.0:
-            raise Exception('Contact penalty should be positive')
-
-        if self.reach_bounds_penalty < 0.0:
-            raise Exception('Reach bounds penalty should be positive')
-
-        if not isinstance(self.episodes_per_goal, int):
-            str1 = f'Episodes per goal should be an integer, current type: {type(self.episodes_per_goal)}'
-            raise Exception(str1)
-
-        if self.episodes_per_goal < 1:
-            raise Exception('Episodes per goal be greather than or equal to 1, i.e. episodes_per_goal >= 1')
+        assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
+        assert self.accepted_error >= 0.0, 'Accepted error to end coordinates should be positive'
+        assert self.reach_target_bonus_reward >= 0.0, 'Reach target bonus reward should be positive'
+        assert self.contact_penalty >= 0.0, 'Contact penalty should be positive'
+        assert self.reach_bounds_penalty >= 0.0, 'Reach bounds penalty should be positive'
+        assert isinstance(self.episodes_per_goal, int), f'Episodes per goal should be an integer, current type: {type(self.episodes_per_goal)}'
+        assert self.episodes_per_goal >= 1, 'Episodes per goal be greather than or equal to 1, i.e. episodes_per_goal >= 1'
+        assert isinstance(self.goal_buffer_size, int), f'Goal buffer size should be an integer, current type: {type(self.goal_buffer_size)}'
+        assert self.goal_buffer_size > 0, 'Goal buffer size should be greather than or equal to 1, i.e. episodes_per_goal >= 1'
+        assert 0 <= self.goal_from_buffer_prob <= 1, 'Probability of selecting goal from buffer should be between 0 and 1'
 
         self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
@@ -59,6 +53,8 @@ class LobotArmRandomGoal:
         self._fk = fk.ForwardKinematics(arm_urdf_path)
 
         self.target_coords = self.__generate_target_coords()
+        self.coords_buffer = deque(maxlen=self.goal_buffer_size)
+        self.coords_buffer.append(self.target_coords)
         target_x = self.target_coords[0]
         target_y = self.target_coords[1]
         target_z = self.target_coords[2]
@@ -186,11 +182,23 @@ class LobotArmRandomGoal:
         return numpy.array([res.translation.x, res.translation.y, res.translation.z])
 
     def __generate_target_coords(self) -> numpy.ndarray:
-        while True :
-            random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
-            res = self._fk.calculate('world', 'grip_end_point', random_joint_values)
-            if res.translation.z > 0.0:
-                break
-        target_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
+        rand_num = numpy.random.rand()
+        # if probability to choose from buffer is very high, i.e. p > 0.99, we make sure buffer is filled first before choosing from buffer
+        high_prob_buffer_unfilled = self.goal_from_buffer_prob > 0.99 and len(self.coords_buffer) < self.coords_buffer.maxlen
+        select_from_buffer = rand_num < self.goal_from_buffer_prob
+
+        if high_prob_buffer_unfilled or not select_from_buffer:
+            # Generate random coords and store
+            while True:
+                random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
+                res = self._fk.calculate('world', 'grip_end_point', random_joint_values)
+                if res.translation.z > 0.0:
+                    break
+            target_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
+            # Store into buffer, since it is a deque with maxlen configured, it will auto pop, no need to manual pop
+            self.coords_buffer.append(target_coords)
+            return target_coords
+
+        target_coords = random.choice(self.coords_buffer)
         return target_coords
 
