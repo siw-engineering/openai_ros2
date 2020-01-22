@@ -18,9 +18,9 @@ class LobotArmEnv(gym.Env):
 
     def __init__(self, robot_cls: type, task_cls: type, robot_kwargs: Dict = None, task_kwargs: Dict = None):
         if task_kwargs is None:
-            task_kwargs = dict()
+            task_kwargs = {}
         if robot_kwargs is None:
-            robot_kwargs = dict()
+            robot_kwargs = {}
         ut_launch.set_network_env_vars()
         os.environ['RMW_IMPLEMENTATION'] = 'rmw_fastrtps_cpp'
         # Check if rclpy has been initialised before

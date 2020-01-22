@@ -16,7 +16,8 @@ def main(args=None):
         'accepted_error': 0.001,
         'reach_target_bonus_reward': 3.0,
         'reach_bounds_penalty': 5.0,
-        'contact_penalty': 15.0
+        'contact_penalty': 15.0,
+        'episodes_per_goal': 5
     }
     env: LobotArmEnv = gym.make('LobotArmContinuous-v2', task_kwargs=task_kwargs)
     env.set_random_init_pos(True)

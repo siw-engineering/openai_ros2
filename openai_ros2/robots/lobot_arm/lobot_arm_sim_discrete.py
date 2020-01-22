@@ -31,7 +31,7 @@ class LobotArmSimDiscrete(LobotArmSim):
 
     def __init__(self, node, robot_kwargs: Dict = None):
         if robot_kwargs is None:
-            robot_kwargs = dict()
+            robot_kwargs = {}
         super().__init__(node, robot_kwargs)
 
     def set_action(self, action: numpy.ndarray) -> None:

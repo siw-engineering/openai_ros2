@@ -13,7 +13,7 @@ import rclpy
 class LobotArmRandomGoal:
     def __init__(self, node: rclpy.node.Node, robot, task_kwargs: Dict = None, max_time_step: int = 500):
         if task_kwargs is None:
-            task_kwargs = dict()
+            task_kwargs = {}
         self.node = node
         self.robot = robot
         self.accepted_dist_to_bounds = task_kwargs.get('accepted_dist_to_bounds', 0.001)
@@ -21,32 +21,41 @@ class LobotArmRandomGoal:
         self.reach_target_bonus_reward = task_kwargs.get('reach_target_bonus_reward', 0.0)
         self.reach_bounds_penalty = task_kwargs.get('reach_bounds_penalty', 0.0)
         self.contact_penalty = task_kwargs.get('contact_penalty', 0.0)
-        print(f'------Setting task parameters------')
+        self.episodes_per_goal = task_kwargs.get('episodes_per_goal', 1)
+        print(f'--------------Setting task parameters--------------')
         print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
         print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
         print('reach_target_bonus_reward: %f # Bonus reward upon reaching target' % self.reach_target_bonus_reward)
         print('reach_bounds_penalty: %f      # Reward penalty when reaching joint limit' % self.reach_bounds_penalty)
         print('contact_penalty: %f           # Reward penalty for collision' % self.contact_penalty)
-        print(f'-----------------------------------')
+        print('episodes_per_goal: %d         # Number of episodes before generating another random goal' % self.episodes_per_goal)
+        print(f'---------------------------------------------------')
 
         if self.accepted_dist_to_bounds < 0.0:
-            raise Exception("Allowable distance to joint limits should be positive")
+            raise Exception('Allowable distance to joint limits should be positive')
 
         if self.accepted_error < 0.0:
-            raise Exception("Accepted error to end coordinates should be positive")
+            raise Exception('Accepted error to end coordinates should be positive')
 
         if self.reach_target_bonus_reward < 0.0:
-            raise Exception("Reach target bonus reward should be positive")
+            raise Exception('Reach target bonus reward should be positive')
 
         if self.contact_penalty < 0.0:
-            raise Exception("Contact penalty should be positive")
+            raise Exception('Contact penalty should be positive')
 
         if self.reach_bounds_penalty < 0.0:
-            raise Exception("Reach bounds penalty should be positive")
+            raise Exception('Reach bounds penalty should be positive')
+
+        if not isinstance(self.episodes_per_goal, int):
+            str1 = f'Episodes per goal should be an integer, current type: {type(self.episodes_per_goal)}'
+            raise Exception(str1)
+
+        if self.episodes_per_goal < 1:
+            raise Exception('Episodes per goal be greather than or equal to 1, i.e. episodes_per_goal >= 1')
 
         self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
-        arm_urdf_path = os.path.join(lobot_desc_share_path, "robots/arm_standalone.urdf")
+        arm_urdf_path = os.path.join(lobot_desc_share_path, 'robots/arm_standalone.urdf')
         self._fk = fk.ForwardKinematics(arm_urdf_path)
 
         self.target_coords = self.__generate_target_coords()
@@ -58,6 +67,7 @@ class LobotArmRandomGoal:
             print(f'Spawning to: {(target_x, target_y, target_z)}')
             spawn_success = ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.004)
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
+        self.__reset_count = 0
 
     def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
         # If there is any contact (collision), we consider the episode done
@@ -95,22 +105,22 @@ class LobotArmRandomGoal:
             if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
                 return False
         # If all coordinates within acceptance range AND time step within limits, we are done
-        print(f"Reached destination, target coords: {self.target_coords}, current coords: {current_coords}")
+        print(f'Reached destination, target coords: {self.target_coords}, current coords: {current_coords}')
         return True
 
     def compute_reward(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box) -> float:
         if len(joint_states) != 3:
-            print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
+            print(f'Expected 3 values for joint states, but got {len(joint_states)} values instead')
             return -1
         coords_get_result = self.__get_coords(joint_states)
         if len(coords_get_result) != 3:
-            print(f"Expected 3 values after getting coordinates, but got {len(coords_get_result)} values instead")
+            print(f'Expected 3 values after getting coordinates, but got {len(coords_get_result)} values instead')
             return -1
         current_coords = coords_get_result
 
         # Give 0 reward on initial state
         if numpy.array_equal(self.previous_coords, numpy.array([0.0, 0.0, 0.0])):
-            # print("Initial state detected, giving 0 reward")
+            # print('Initial state detected, giving 0 reward')
             reward = 0.0
         else:
             reward = self.__calc_dist_change(self.previous_coords, current_coords)
@@ -150,16 +160,18 @@ class LobotArmRandomGoal:
 
     def reset(self):
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
-        self.target_coords = self.__generate_target_coords()
-        if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
-            # Move the target marker if it is gazebo
-            print(f'Moving to {(self.target_coords[0], self.target_coords[1], self.target_coords[2])}')
-            spawn_success = ut_gazebo.create_marker(self.node, self.target_coords[0],
-                                                    self.target_coords[1], self.target_coords[2], diameter=0.004)
+        self.__reset_count += 1
+        if self.__reset_count % self.episodes_per_goal == 0:
+            self.target_coords = self.__generate_target_coords()
+            if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
+                # Move the target marker if it is gazebo
+                print(f'Moving to {(self.target_coords[0], self.target_coords[1], self.target_coords[2])}')
+                spawn_success = ut_gazebo.create_marker(self.node, self.target_coords[0],
+                                                        self.target_coords[1], self.target_coords[2], diameter=0.004)
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:
-        # Efficient euclidean distance calculation by numpy, most likely uses SIMD
+        # Efficient euclidean distance calculation by numpy, most likely uses vector instructions
         diff_abs_init = numpy.linalg.norm(coords_init - self.target_coords)
         diff_abs_next = numpy.linalg.norm(coords_next - self.target_coords)
 
@@ -167,7 +179,7 @@ class LobotArmRandomGoal:
 
     def __get_coords(self, joint_states: numpy.ndarray) -> numpy.ndarray:
         if len(joint_states) != 3:
-            print(f"Expected 3 values for joint states, but got {len(joint_states)} values instead")
+            print(f'Expected 3 values for joint states, but got {len(joint_states)} values instead')
             return numpy.array([0.0, 0.0, 0.0])
 
         res = self._fk.calculate('world', 'grip_end_point', joint_states)

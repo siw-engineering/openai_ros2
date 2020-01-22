@@ -28,7 +28,7 @@ class LobotArmSim(LobotArmBase):
 
     def __init__(self, node, robot_kwargs: Dict = None):
         if robot_kwargs is None:
-            robot_kwargs = dict()
+            robot_kwargs = {}
         self._gazebo = Gazebo()
         super().__init__(node, robot_kwargs)
         self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)

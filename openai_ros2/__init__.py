@@ -73,14 +73,15 @@ register(
             'robot_cls': LobotArmSim,
             'robot_kwargs': {
                 'random_init_pos': True
-                },
+            },
             'task_kwargs': {
                 'accepted_dist_to_bounds': 0.001,
                 'accepted_error': 0.001,
-                'reach_target_bonus_reward': 3.0,
-                'reach_bounds_penalty': 5.0,
-                'contact_penalty': 15.0
-                }
+                'reach_target_bonus_reward': 15.0,
+                'reach_bounds_penalty': 10.0,
+                'contact_penalty': 10.0,
+                'episodes_per_goal': 1
+            }
             }
 )
 register(
