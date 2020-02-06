@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    package_data={'': ['forward_kinematics_py.so']},
+    package_data={'': ['forward_kinematics_py.so', 'goal_points.pkl']},
     install_requires=['setuptools', 'gym', 'numpy', 'psutil'],
     zip_safe=True,
     author='Poh Zhi-Ee',

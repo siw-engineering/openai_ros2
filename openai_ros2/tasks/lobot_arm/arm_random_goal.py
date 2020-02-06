@@ -9,6 +9,7 @@ from ament_index_python.packages import get_package_share_directory
 from gym.spaces import Box
 import os
 import rclpy
+import pickle
 
 
 class LobotArmRandomGoal:
@@ -26,6 +27,7 @@ class LobotArmRandomGoal:
         self.goal_buffer_size = task_kwargs.get('goal_buffer_size', 20)
         self.goal_from_buffer_prob = task_kwargs.get('goal_from_buffer_prob', 0.0)
         self.num_adjacent_goals = task_kwargs.get('num_adjacent_goals', 0)
+        self.use_fixed_goal_buffer = task_kwargs.get('use_fixed_goal_buffer', False)
         print(f'-------------------------------Setting task parameters-------------------------------')
         print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
         print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
@@ -35,7 +37,8 @@ class LobotArmRandomGoal:
         print('episodes_per_goal: %d         # Number of episodes before generating another random goal' % self.episodes_per_goal)
         print('goal_buffer_size: %d          # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
         print('goal_from_buffer_prob: %f     # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
-        print(f'num_adjacent_goals: %d       # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
+        print('num_adjacent_goals: %d        # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
+        print('use_fixed_goal_buffer: %r     # Use a pre-generated goal buffer instead of randoming' % self.use_fixed_goal_buffer)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -57,9 +60,16 @@ class LobotArmRandomGoal:
         self._fk = fk.ForwardKinematics(arm_urdf_path)
 
         self.coords_buffer = deque(maxlen=self.goal_buffer_size)
-        # self.angles_buffer = deque(maxlen=self.goal_buffer_size)
+        if self.use_fixed_goal_buffer:
+            script_dir = os.path.dirname(os.path.realpath(__file__))
+            fixed_goals_path = os.path.join(script_dir, 'goal_points.pkl')
+            with open(fixed_goals_path, 'rb') as f:
+                goal_buffer = pickle.load(f)
+
+            for i in range(self.goal_buffer_size):
+                self.coords_buffer.append(goal_buffer[i])
+            print(f'Using fixed goals, target coords: {enumerate([y for x, y in self.coords_buffer])}')
         self.target_coords_ik, self.target_coords = self.__get_target_coords()
-        # This is the buffer that stores the angles that make up the coordinates in the coords_buffer
         target_x = self.target_coords[0]
         target_y = self.target_coords[1]
         target_z = self.target_coords[2]
