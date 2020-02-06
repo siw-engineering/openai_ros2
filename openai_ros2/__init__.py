@@ -71,9 +71,10 @@ register(
                 'reach_bounds_penalty': 10.0,
                 'contact_penalty': 10.0,
                 'episodes_per_goal': 1,
-                'goal_buffer_size': 20,
-                'goal_from_buffer_prob': 0.95,
-                'num_adjacent_goals': 9
+                'goal_buffer_size': 5,
+                'goal_from_buffer_prob': 1.0,
+                'num_adjacent_goals': 0,
+                'use_fixed_goal_buffer': True
             }
             }
 )
