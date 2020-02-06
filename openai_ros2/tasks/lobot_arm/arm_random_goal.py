@@ -59,16 +59,21 @@ class LobotArmRandomGoal:
         arm_urdf_path = os.path.join(lobot_desc_share_path, 'robots/arm_standalone.urdf')
         self._fk = fk.ForwardKinematics(arm_urdf_path)
 
-        self.coords_buffer = deque(maxlen=self.goal_buffer_size)
+        self.coords_buffer = deque(maxlen=self.goal_buffer_size*2)
         if self.use_fixed_goal_buffer:
             script_dir = os.path.dirname(os.path.realpath(__file__))
             fixed_goals_path = os.path.join(script_dir, 'goal_points.pkl')
             with open(fixed_goals_path, 'rb') as f:
                 goal_buffer = pickle.load(f)
-
+            numpy.random.seed(10)
             for i in range(self.goal_buffer_size):
                 self.coords_buffer.append(goal_buffer[i])
-            print(f'Using fixed goals, target coords: {enumerate([y for x, y in self.coords_buffer])}')
+                self.coords_buffer.append(self.__generate_adjacent_coords(goal_buffer[i][0]))
+            def print_list(list):
+                for item in list:
+                    print(item)
+            print('Using fixed goals, target coords: ')
+            print_list(enumerate([y for x, y in self.coords_buffer]))
         self.target_coords_ik, self.target_coords = self.__get_target_coords()
         target_x = self.target_coords[0]
         target_y = self.target_coords[1]
