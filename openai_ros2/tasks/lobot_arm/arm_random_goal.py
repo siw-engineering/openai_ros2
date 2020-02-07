@@ -59,7 +59,7 @@ class LobotArmRandomGoal:
         arm_urdf_path = os.path.join(lobot_desc_share_path, 'robots/arm_standalone.urdf')
         self._fk = fk.ForwardKinematics(arm_urdf_path)
 
-        self.coords_buffer = deque(maxlen=self.goal_buffer_size*2)
+        self.coords_buffer = deque(maxlen=self.goal_buffer_size*4)
         if self.use_fixed_goal_buffer:
             script_dir = os.path.dirname(os.path.realpath(__file__))
             fixed_goals_path = os.path.join(script_dir, 'goal_points.pkl')
@@ -68,7 +68,8 @@ class LobotArmRandomGoal:
             numpy.random.seed(10)
             for i in range(self.goal_buffer_size):
                 self.coords_buffer.append(goal_buffer[i])
-                self.coords_buffer.append(self.__generate_adjacent_coords(goal_buffer[i][0]))
+                for _ in range(3):
+                    self.coords_buffer.append(self.__generate_adjacent_coords(goal_buffer[i][0]))
             def print_list(list):
                 for item in list:
                     print(item)
@@ -214,7 +215,8 @@ class LobotArmRandomGoal:
 
     def __generate_adjacent_coords(self, joint_values: numpy.ndarray):
         while True:
-            random_addition = numpy.random.uniform([-0.05, -0.05, -0.05], [0.05, 0.05, 0.05])
+            range = numpy.array([1.0, 1.0, 1.0]) * 0.07
+            random_addition = numpy.random.uniform(-range, range)
             joint_values_adjacent = joint_values + random_addition
             joint_values_adjacent = joint_values_adjacent.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.5, 1.570796])
             res = self._fk.calculate('world', 'grip_end_point', joint_values_adjacent)
