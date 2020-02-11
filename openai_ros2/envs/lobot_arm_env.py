@@ -38,7 +38,7 @@ class LobotArmEnv(gym.Env):
         self.__episode_num = 0
         self.__cumulated_episode_reward = 0
         self.__step_num = 0
-        self.reset()
+        # self.reset()
 
     def step(self, action: numpy.ndarray) -> Tuple[numpy.ndarray, float, bool, dict]:
         self.__robot.set_action(action)

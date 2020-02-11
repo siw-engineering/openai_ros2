@@ -14,6 +14,7 @@ from typing import Type
 
 def main(args=None):
     env: LobotArmEnv = gym.make('LobotArmDiscrete-v1') # Discrete with noise
+    env.reset()
     action_space: Type[MultiDiscrete] = env.action_space
     rclpy.spin_once(env.node)
     while True:
