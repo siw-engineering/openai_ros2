@@ -57,6 +57,29 @@ register(
             }
 )
 register(
+    id='LobotArmContinuous-v5',  # Continuous action space with noise, with random goal
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'robot_kwargs': {
+                'random_init_pos': False
+            },
+            'task_kwargs': {
+                'accepted_dist_to_bounds': 0.001,
+                'accepted_error': 0.001,
+                'reach_target_bonus_reward': 0.0,
+                'reach_bounds_penalty': 0.0,
+                'contact_penalty': 0.0,
+                'episodes_per_goal': 1,
+                'goal_from_buffer_prob': 0.0,
+                'num_adjacent_goals': 0,
+                'random_goal_seed': 10,
+                'is_validation': False,
+                'normalise_reward': True
+            }
+            }
+)
+register(
     id='LobotArmContinuousValidation-v0',
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmRandomGoal,
@@ -73,7 +96,7 @@ register(
                 'episodes_per_goal': 1,
                 'goal_from_buffer_prob': 0.0,
                 'num_adjacent_goals': 0,
-                'use_fixed_goal_buffer': False,
+                'random_goal_seed': 10,
                 'is_validation': True
             }
             }
@@ -95,7 +118,7 @@ register(
                 'episodes_per_goal': 1,
                 'goal_from_buffer_prob': 0.0,
                 'num_adjacent_goals': 0,
-                'use_fixed_goal_buffer': False,
+                'random_goal_seed': 10,
                 'is_validation': True
             }
             }
@@ -117,7 +140,7 @@ register(
                 'episodes_per_goal': 1,
                 'goal_from_buffer_prob': 0.0,
                 'num_adjacent_goals': 0,
-                'use_fixed_goal_buffer': False,
+                'random_goal_seed': 10,
                 'is_validation': True
             }
             }
@@ -156,15 +179,15 @@ register(
             'task_kwargs': {
                 'accepted_dist_to_bounds': 0.001,
                 'accepted_error': 0.001,
-                'reach_target_bonus_reward': 0.0,
-                'reach_bounds_penalty': 0.0,
-                'contact_penalty': 0.0,
+                'reach_target_bonus_reward': 20.0,
+                'reach_bounds_penalty': 20.0,
+                'contact_penalty': 20.0,
                 'episodes_per_goal': 1,
-                'goal_buffer_size': 200,
+                'goal_buffer_size': 30,
                 'goal_from_buffer_prob': 1.0,
                 'num_adjacent_goals': 0,
-                'use_fixed_goal_buffer': True,
-                'is_validation': True
+                'random_goal_seed': 10,
+                'is_validation': False
             }
             }
 )

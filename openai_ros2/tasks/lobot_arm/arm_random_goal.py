@@ -28,6 +28,7 @@ class LobotArmRandomGoal:
         self.num_adjacent_goals = task_kwargs.get('num_adjacent_goals', 0)
         self.is_validation = task_kwargs.get('is_validation', False)
         self.random_goal_seed = task_kwargs.get('random_goal_seed', None)
+        self.normalise_reward = task_kwargs.get('normalise_reward', False)
         print(f'-------------------------------Setting task parameters-------------------------------')
         print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
         print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
@@ -38,8 +39,9 @@ class LobotArmRandomGoal:
         print('goal_buffer_size: %d          # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
         print('goal_from_buffer_prob: %f     # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
         print('num_adjacent_goals: %d        # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
-        print('random_goal_seed: %d          # Seed used to generate the random goals' % self.random_goal_seed)
+        print(f'random_goal_seed: {self.random_goal_seed}          # Seed used to generate the random goals')
         print('is_validation: %r             # Whether this is a validation run, if true will print which points failed and how many reached' % self.is_validation)
+        print('normalise_reward: %r          # Perform reward normalisation, this happens before reward bonus and penalties' % self.normalise_reward)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -94,26 +96,29 @@ class LobotArmRandomGoal:
                 ut_gazebo.create_marker(self.node, x[0], x[1], x[2], diameter=0.001, id=k)
                 k += 1
 
-    def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
+    def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> Tuple[bool, Dict]:
         is_failed = self.__is_failed(joint_states, contact_count, observation_space, time_step)
+        info_dict = {'failed': False}
         if is_failed:
             self.fail_points.append((self.target_coords, self.target_coords_ik))
-            print(f'Failed to reach {self.target_coords}')
-            return True
+            if self.is_validation:
+                print(f'Failed to reach {self.target_coords}')
+                info_dict['failed'] = True
+            return True, info_dict
 
         current_coords = self.__get_coords(joint_states)
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
         for i in range(3):
             if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
-                return False
+                return False, info_dict
         # If all coordinates within acceptance range AND time step within limits, we are done
         print(f'Reached destination, target coords: {self.target_coords}, current coords: {current_coords}')
         self.__reach_count += 1
         if self.is_validation:
             print(f'Reach count: {self.__reach_count}')
-        return True
+        return True, info_dict
 
-    def compute_reward(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box) -> float:
+    def compute_reward(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box) -> Tuple[float, Dict]:
 
         if len(joint_states) != 3:
             print(f'Expected 3 values for joint states, but got {len(joint_states)} values instead')
@@ -131,8 +136,20 @@ class LobotArmRandomGoal:
         else:
             reward = self.__calc_dist_change(self.previous_coords, current_coords)
 
-        # Scale up reward so that it is not so small
-        reward *= 100
+        # normalise rewards
+        mag_target = numpy.linalg.norm(self.target_coords)
+        normalised_reward = reward / mag_target
+
+        # Scale up reward so that it is not so small if not normalised
+        normal_scaled_reward = reward * 100
+
+        reward_info = {'normalised_reward': normalised_reward, 'normal_reward': normal_scaled_reward}
+
+        if self.normalise_reward:
+            reward = normalised_reward
+        else:
+            reward = normal_scaled_reward
+
         self.previous_coords = current_coords
 
         # Reward shaping logic
@@ -162,7 +179,7 @@ class LobotArmRandomGoal:
         if contact_count > 0:
             reward -= self.contact_penalty
 
-        return reward
+        return reward, reward_info
 
     def reset(self):
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
