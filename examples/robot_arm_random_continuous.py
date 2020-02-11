@@ -19,8 +19,9 @@ def main(args=None):
     #     'contact_penalty': 15.0,
     #     'episodes_per_goal': 5
     # }
-    env: LobotArmEnv = gym.make('LobotArmContinuous-v6')
-    env.set_random_init_pos(True)
+    env: LobotArmEnv = gym.make('LobotArmContinuousJoann-v1')
+    env.reset()
+    # env.set_random_init_pos(True)
     # If unable to set the environment parameters like this, just register more environments like v4 or something
     action_space: Type[Box] = env.action_space
     while True:

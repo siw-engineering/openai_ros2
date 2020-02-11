@@ -9,7 +9,6 @@ from ament_index_python.packages import get_package_share_directory
 from gym.spaces import Box
 import os
 import rclpy
-import pickle
 
 
 class LobotArmRandomGoal:
@@ -27,7 +26,8 @@ class LobotArmRandomGoal:
         self.goal_buffer_size = task_kwargs.get('goal_buffer_size', 20)
         self.goal_from_buffer_prob = task_kwargs.get('goal_from_buffer_prob', 0.0)
         self.num_adjacent_goals = task_kwargs.get('num_adjacent_goals', 0)
-        self.use_fixed_goal_buffer = task_kwargs.get('use_fixed_goal_buffer', False)
+        self.is_validation = task_kwargs.get('is_validation', False)
+        self.random_goal_seed = task_kwargs.get('random_goal_seed', None)
         print(f'-------------------------------Setting task parameters-------------------------------')
         print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
         print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
@@ -38,7 +38,8 @@ class LobotArmRandomGoal:
         print('goal_buffer_size: %d          # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
         print('goal_from_buffer_prob: %f     # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
         print('num_adjacent_goals: %d        # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
-        print('use_fixed_goal_buffer: %r     # Use a pre-generated goal buffer instead of randoming' % self.use_fixed_goal_buffer)
+        print('random_goal_seed: %d          # Seed used to generate the random goals' % self.random_goal_seed)
+        print('is_validation: %r             # Whether this is a validation run, if true will print which points failed and how many reached' % self.is_validation)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -53,6 +54,8 @@ class LobotArmRandomGoal:
         assert 0 <= self.goal_from_buffer_prob <= 1, 'Probability of selecting goal from buffer should be between 0 and 1'
         assert isinstance(self.num_adjacent_goals, int), f'Number of adjacent goals should be an integer, current type: {type(self.num_adjacent_goals)}'
         assert self.num_adjacent_goals >= 0, f'Number of adjacent goals should be positive, current value: {self.num_adjacent_goals}'
+        if self.random_goal_seed is not None:
+            assert isinstance(self.random_goal_seed, int), f'Random goal seed should be an, current type: {type(self.random_goal_seed)}'
 
         self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
@@ -60,15 +63,6 @@ class LobotArmRandomGoal:
         self._fk = fk.ForwardKinematics(arm_urdf_path)
 
         self.coords_buffer = deque(maxlen=self.goal_buffer_size)
-        if self.use_fixed_goal_buffer:
-            script_dir = os.path.dirname(os.path.realpath(__file__))
-            fixed_goals_path = os.path.join(script_dir, 'goal_points.pkl')
-            with open(fixed_goals_path, 'rb') as f:
-                goal_buffer = pickle.load(f)
-
-            for i in range(self.goal_buffer_size):
-                self.coords_buffer.append(goal_buffer[i])
-            print(f'Using fixed goals, target coords: {enumerate([y for x, y in self.coords_buffer])}')
         self.target_coords_ik, self.target_coords = self.__get_target_coords()
         target_x = self.target_coords[0]
         target_y = self.target_coords[1]
@@ -78,45 +72,45 @@ class LobotArmRandomGoal:
             print(f'Spawning to: {(target_x, target_y, target_z)}')
             spawn_success = ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.004)
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
-        self.__reset_count = 0
+        self.__reset_count: int = 0
+        self.fail_points = []
+        self.__reach_count: int = 0
+
+    def __del__(self):
+        print('Arm random goal destructor called')
+        if self.is_validation:
+            # If fail_points is not defined yet, do nothing
+            if not hasattr(self, 'fail_points'):
+                return
+
+            def print_list(list_):
+                for item in list_:
+                    print(item)
+            print('Failed goals, target coords: ')
+            print_list(enumerate([x for x, y in self.fail_points]))
+            k = 100
+            ut_gazebo.create_marker(self.node, 0.0, 0.0, 0.0, diameter=0.004)
+            for x, y in self.fail_points:
+                ut_gazebo.create_marker(self.node, x[0], x[1], x[2], diameter=0.001, id=k)
+                k += 1
 
     def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
-        # If there is any contact (collision), we consider the episode done
-        if contact_count > 0:
+        is_failed = self.__is_failed(joint_states, contact_count, observation_space, time_step)
+        if is_failed:
+            self.fail_points.append((self.target_coords, self.target_coords_ik))
+            print(f'Failed to reach {self.target_coords}')
             return True
 
         current_coords = self.__get_coords(joint_states)
-
-        # Highest done priority is if time step exceeds limit, so we check this first
-        if time_step > self._max_time_step:
-            return True
-
-        # Check that joint values are not approaching limits
-        upper_bound = observation_space.high[:3]  # First 3 values are the joint states
-        lower_bound = observation_space.low[:3]
-        min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
-        min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
-        # self.accepted_dist_to_bounds is basically how close to the joint limits can the joints go,
-        # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
-        if min_dist_to_lower_bound < self.accepted_dist_to_bounds:
-            joint_index = abs(joint_states - lower_bound).argmin()
-            print(f'Joint {joint_index} approach joint limits, '
-                  f'current joint value: {joint_states[joint_index]}, '
-                  f'minimum joint value: {lower_bound[joint_index]}')
-            return True
-        if min_dist_to_upper_bound < self.accepted_dist_to_bounds:
-            joint_index = abs(joint_states - upper_bound).argmin()
-            print(f'Joint {joint_index} approach joint limits, '
-                  f'current joint value: {joint_states[joint_index]}, '
-                  f'maximum joint value: {upper_bound[joint_index]}')
-            return True
-
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
         for i in range(3):
             if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
                 return False
         # If all coordinates within acceptance range AND time step within limits, we are done
         print(f'Reached destination, target coords: {self.target_coords}, current coords: {current_coords}')
+        self.__reach_count += 1
+        if self.is_validation:
+            print(f'Reach count: {self.__reach_count}')
         return True
 
     def compute_reward(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box) -> float:
@@ -182,6 +176,35 @@ class LobotArmRandomGoal:
                 spawn_success = ut_gazebo.create_marker(self.node, self.target_coords[0],
                                                         self.target_coords[1], self.target_coords[2], diameter=0.004)
 
+    def __is_failed(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
+        # If there is any contact (collision), we consider the episode done
+        if contact_count > 0:
+            return True
+
+        # Highest done priority is if time step exceeds limit, so we check this first
+        if time_step > self._max_time_step:
+            return True
+
+        # Check that joint values are not approaching limits
+        upper_bound = observation_space.high[:3]  # First 3 values are the joint states
+        lower_bound = observation_space.low[:3]
+        min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
+        min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
+        # self.accepted_dist_to_bounds is basically how close to the joint limits can the joints go,
+        # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
+        if min_dist_to_lower_bound < self.accepted_dist_to_bounds:
+            joint_index = abs(joint_states - lower_bound).argmin()
+            print(f'Joint {joint_index} approach joint limits, '
+                  f'current joint value: {joint_states[joint_index]}, '
+                  f'minimum joint value: {lower_bound[joint_index]}')
+            return True
+        if min_dist_to_upper_bound < self.accepted_dist_to_bounds:
+            joint_index = abs(joint_states - upper_bound).argmin()
+            print(f'Joint {joint_index} approach joint limits, '
+                  f'current joint value: {joint_states[joint_index]}, '
+                  f'maximum joint value: {upper_bound[joint_index]}')
+            return True
+
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:
         # Efficient euclidean distance calculation by numpy, most likely uses vector instructions
@@ -199,23 +222,32 @@ class LobotArmRandomGoal:
         return numpy.array([res.translation.x, res.translation.y, res.translation.z])
 
     def __generate_target_coords(self) -> Tuple[numpy.ndarray, numpy.ndarray]:
+        if self.random_goal_seed is not None:
+            self.__seed_numpy()
+
         while True:
             random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
             res = self._fk.calculate('world', 'grip_end_point', random_joint_values)
             if res.translation.z > 0.0:
                 break
         target_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
+        self.np_random_state = numpy.random.get_state()
         return random_joint_values, target_coords
 
     def __generate_adjacent_coords(self, joint_values: numpy.ndarray):
+        if self.random_goal_seed is not None:
+            self.__seed_numpy()
+
         while True:
-            random_addition = numpy.random.uniform([-0.05, -0.05, -0.05], [0.05, 0.05, 0.05])
+            rand_range = numpy.array([1.0, 1.0, 1.0]) * 0.1
+            random_addition = numpy.random.uniform(-rand_range, rand_range)
             joint_values_adjacent = joint_values + random_addition
             joint_values_adjacent = joint_values_adjacent.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.5, 1.570796])
             res = self._fk.calculate('world', 'grip_end_point', joint_values_adjacent)
             if res.translation.z > 0.0:
                 break
         target_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
+        self.np_random_state = numpy.random.get_state()
         return joint_values_adjacent, target_coords
 
     def __get_target_coords(self) -> Tuple[numpy.ndarray, numpy.ndarray]:
@@ -235,6 +267,23 @@ class LobotArmRandomGoal:
                 self.coords_buffer.append((joint_vals, coords))
             return random_joint_values, target_coords
 
+        if len(self.coords_buffer) == self.coords_buffer.maxlen and not hasattr(self, 'first_time_printing_coords'):
+            # Use this attribute to determine if we have printed coords or not, if no such attribute means first time printing
+            self.first_time_printing_coords = True
+            def print_list(list_):
+                for item in list_:
+                    print(item)
+            print('Using target coords: ')
+            print_list(enumerate([y for x, y in self.coords_buffer]))
+
         random_joint_values, target_coords = random.choice(self.coords_buffer)
         return random_joint_values, target_coords
 
+    def __seed_numpy(self):
+        # Properly seed the numpy RNG if a random seed is given
+        # The set state and get_state is such that this generator function always returns the same set of values given the same seed
+        # This is regardless of how many random calls are used in between
+        if hasattr(self, 'np_random_state'):
+            numpy.random.set_state(self.np_random_state)
+        else:
+            numpy.random.seed(self.random_goal_seed)
