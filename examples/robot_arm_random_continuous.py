@@ -24,9 +24,10 @@ def main(args=None):
     # env.set_random_init_pos(True)
     # If unable to set the environment parameters like this, just register more environments like v4 or something
     action_space: Type[Box] = env.action_space
+    done = False
     while True:
         print("-------------Starting----------------")
-        for x in range(500):
+        while not done:
             # action = numpy.array([1.00, -1.01, 1.01])
             action = action_space.sample()
             action_do_nothing = numpy.array([0.0, 0.0, 0.0])
@@ -37,11 +38,12 @@ def main(args=None):
             done: bool
             info: dict
             if done:
-                break
+                arm_state = info['arm_state']
+                print(arm_state)
         time.sleep(1.0)
-        print("-------------Resetting environment---------------")
         env.reset()
-        print("-------------Reset finished----------------")
+        done = False
+        print("-------------Reset finished---------------")
 
 
 if __name__ == '__main__':

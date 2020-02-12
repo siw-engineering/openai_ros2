@@ -1,7 +1,8 @@
-import numpy
 import random
 from collections import deque
 from typing import Dict, Tuple
+from enum import Enum, auto
+import numpy
 import forward_kinematics_py as fk
 from openai_ros2.utils import ut_launch, ut_gazebo
 from openai_ros2.robots import LobotArmSim
@@ -10,6 +11,14 @@ from gym.spaces import Box
 import os
 import rclpy
 
+
+class ArmState(Enum):
+    Reached = auto()
+    InProgress = auto()
+    ApproachJointLimits = auto()
+    Collision = auto()
+    Timeout = auto()
+    Undefined = auto()
 
 class LobotArmRandomGoal:
     def __init__(self, node: rclpy.node.Node, robot, task_kwargs: Dict = None, max_time_step: int = 500):
@@ -97,37 +106,35 @@ class LobotArmRandomGoal:
                 k += 1
 
     def is_done(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> Tuple[bool, Dict]:
-        is_failed = self.__is_failed(joint_states, contact_count, observation_space, time_step)
-        info_dict = {'failed': False}
-        if is_failed:
+        failed, arm_state = self.__is_failed(joint_states, contact_count, observation_space, time_step)
+        info_dict = {'arm_state': arm_state}
+        if failed:
             self.fail_points.append((self.target_coords, self.target_coords_ik))
             if self.is_validation:
                 print(f'Failed to reach {self.target_coords}')
-                info_dict['failed'] = True
             return True, info_dict
 
         current_coords = self.__get_coords(joint_states)
         # If time step still within limits, as long as any coordinate is out of acceptance range, we are not done
         for i in range(3):
             if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
+                info_dict['arm_state'] = ArmState.InProgress
                 return False, info_dict
         # If all coordinates within acceptance range AND time step within limits, we are done
+        info_dict['arm_state'] = ArmState.Reached
         print(f'Reached destination, target coords: {self.target_coords}, current coords: {current_coords}')
         self.__reach_count += 1
         if self.is_validation:
             print(f'Reach count: {self.__reach_count}')
         return True, info_dict
 
-    def compute_reward(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box) -> Tuple[float, Dict]:
-
-        if len(joint_states) != 3:
-            print(f'Expected 3 values for joint states, but got {len(joint_states)} values instead')
-            return -1
+    def compute_reward(self, joint_states: numpy.ndarray, arm_state: ArmState) -> Tuple[float, Dict]:
+        assert len(joint_states) == 3, f'Expected 3 values for joint states, but got {len(joint_states)} values instead'
         coords_get_result = self.__get_coords(joint_states)
-        if len(coords_get_result) != 3:
-            print(f'Expected 3 values after getting coordinates, but got {len(coords_get_result)} values instead')
-            return -1
+        assert len(coords_get_result) == 3, f'Expected 3 values after getting coordinates, but got {len(coords_get_result)} values instead'
         current_coords = coords_get_result
+
+        assert arm_state != ArmState.Undefined, f'Arm state cannot be undefined, please check logic'
 
         # Give 0 reward on initial state
         if numpy.array_equal(self.previous_coords, numpy.array([0.0, 0.0, 0.0])):
@@ -140,10 +147,19 @@ class LobotArmRandomGoal:
         mag_target = numpy.linalg.norm(self.target_coords)
         normalised_reward = reward / mag_target
 
+        # Scale up normalised reward slightly such that the total reward is between 0 and 10 instead of between 0 and 1
+        normalised_reward *= 10
+
         # Scale up reward so that it is not so small if not normalised
         normal_scaled_reward = reward * 100
 
-        reward_info = {'normalised_reward': normalised_reward, 'normal_reward': normal_scaled_reward}
+        # Calculate current distance to goal (for information purposes only)
+        dist = numpy.linalg.norm(current_coords - self.target_coords)
+
+        reward_info = {'normalised_reward': normalised_reward,
+                       'normal_reward': normal_scaled_reward,
+                       'distance_to_goal': dist,
+                       'current_goal': self.target_coords}
 
         if self.normalise_reward:
             reward = normalised_reward
@@ -155,28 +171,15 @@ class LobotArmRandomGoal:
         # Reward shaping logic
 
         # Check if it has reached target destination
-        # If any coords out of acceptance range, we set reached to False, else it is True
-        reached_destination = True
-        for i in range(3):
-            if abs(self.target_coords[i] - current_coords[i]) > self.accepted_error:
-                reached_destination = False
-                break
-        if reached_destination:
+        if arm_state == ArmState.Reached:
             reward += self.reach_target_bonus_reward
 
         # Check if it has approached any joint limits
-        upper_bound = observation_space.high[:3]  # First 3 values are the joint states
-        lower_bound = observation_space.low[:3]
-        min_dist_to_upper_bound = min(abs(joint_states - upper_bound))
-        min_dist_to_lower_bound = min(abs(joint_states - lower_bound))
-        # self.accepted_dist_to_bounds is basically how close to the joint limits can the joints go,
-        # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
-        if (min_dist_to_lower_bound < self.accepted_dist_to_bounds) or \
-                (min_dist_to_upper_bound < self.accepted_dist_to_bounds):  # when reached the joint limit
+        if arm_state == ArmState.ApproachJointLimits:
             reward -= self.reach_bounds_penalty
 
-        # Check if it has any contacts
-        if contact_count > 0:
+        # Check for collision
+        if arm_state == ArmState.Collision:
             reward -= self.contact_penalty
 
         return reward, reward_info
@@ -193,14 +196,15 @@ class LobotArmRandomGoal:
                 spawn_success = ut_gazebo.create_marker(self.node, self.target_coords[0],
                                                         self.target_coords[1], self.target_coords[2], diameter=0.004)
 
-    def __is_failed(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> bool:
+    def __is_failed(self, joint_states: numpy.ndarray, contact_count: int, observation_space: Box, time_step: int = -1) -> Tuple[bool, ArmState]:
+        info_dict = {'arm_state': ArmState.Undefined}
         # If there is any contact (collision), we consider the episode done
         if contact_count > 0:
-            return True
+            return True, ArmState.Collision
 
-        # Highest done priority is if time step exceeds limit, so we check this first
+        # Check if time step exceeds limits, i.e. timed out
         if time_step > self._max_time_step:
-            return True
+            return True, ArmState.Timeout
 
         # Check that joint values are not approaching limits
         upper_bound = observation_space.high[:3]  # First 3 values are the joint states
@@ -214,13 +218,16 @@ class LobotArmRandomGoal:
             print(f'Joint {joint_index} approach joint limits, '
                   f'current joint value: {joint_states[joint_index]}, '
                   f'minimum joint value: {lower_bound[joint_index]}')
-            return True
+            return True, ArmState.ApproachJointLimits
         if min_dist_to_upper_bound < self.accepted_dist_to_bounds:
             joint_index = abs(joint_states - upper_bound).argmin()
             print(f'Joint {joint_index} approach joint limits, '
                   f'current joint value: {joint_states[joint_index]}, '
                   f'maximum joint value: {upper_bound[joint_index]}')
-            return True
+            info_dict['arm_state'] = ArmState.ApproachJointLimits
+            return True, ArmState.ApproachJointLimits
+        # Didn't fail
+        return False, ArmState.Undefined
 
     def __calc_dist_change(self, coords_init: numpy.ndarray,
                            coords_next: numpy.ndarray) -> float:
