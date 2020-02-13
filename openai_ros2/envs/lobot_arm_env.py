@@ -38,6 +38,7 @@ class LobotArmEnv(gym.Env):
         self.__episode_num = 0
         self.__cumulated_episode_reward = 0
         self.__step_num = 0
+        self.__last_done_info = None
         # self.reset()
 
     def step(self, action: numpy.ndarray) -> Tuple[numpy.ndarray, float, bool, dict]:
@@ -56,15 +57,22 @@ class LobotArmEnv(gym.Env):
         info: dict = {**reward_info, **done_info}
         self.__cumulated_episode_reward += reward
         self.__step_num += 1
+        self.__last_done_info = done_info
 
         # print(f"Reward for step {self.__step_num}: {reward}, \t cumulated reward: {self.__cumulated_episode_reward}")
         return obs, reward, done, info
 
     def reset(self):
-        print(f'Episode {self.__episode_num} concluded with total reward of: {self.__cumulated_episode_reward}')
+        if self.__last_done_info is not None:
+            print(f'Episode {self.__episode_num: <6}     Reward: {self.__cumulated_episode_reward:.9f}     '
+                  f'Reason: {self.__last_done_info["arm_state"]:<35}      Timesteps: {self.__step_num:<4}')
+        else:
+            print(f'Episode {self.__episode_num: <6}     Reward: {self.__cumulated_episode_reward:.9f}     '
+                  f'total timesteps: {self.__step_num:<4}')
         self.__robot.reset()
         self.__task.reset()
         self.__step_num = 0
+        self.__last_done_info = None
         self.__episode_num += 1
         self.__cumulated_episode_reward = 0
         return numpy.zeros(self.observation_space.shape, dtype=float)

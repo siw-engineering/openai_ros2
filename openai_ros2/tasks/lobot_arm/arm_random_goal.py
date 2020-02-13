@@ -236,15 +236,15 @@ class LobotArmRandomGoal:
         # i.e. limit of 1.57 with accepted dist of 0.1, then the joint can only go until 1.47
         if min_dist_to_lower_bound < self.accepted_dist_to_bounds:
             joint_index = abs(joint_states - lower_bound).argmin()
-            print(f'Joint {joint_index} approach joint limits, '
-                  f'current joint value: {joint_states[joint_index]}, '
-                  f'minimum joint value: {lower_bound[joint_index]}')
+            # print(f'Joint {joint_index} approach joint limits, '
+            #       f'current joint value: {joint_states[joint_index]}, '
+            #       f'minimum joint value: {lower_bound[joint_index]}')
             return True, ArmState.ApproachJointLimits
         if min_dist_to_upper_bound < self.accepted_dist_to_bounds:
             joint_index = abs(joint_states - upper_bound).argmin()
-            print(f'Joint {joint_index} approach joint limits, '
-                  f'current joint value: {joint_states[joint_index]}, '
-                  f'maximum joint value: {upper_bound[joint_index]}')
+            # print(f'Joint {joint_index} approach joint limits, '
+            #       f'current joint value: {joint_states[joint_index]}, '
+            #       f'maximum joint value: {upper_bound[joint_index]}')
             info_dict['arm_state'] = ArmState.ApproachJointLimits
             return True, ArmState.ApproachJointLimits
         # Didn't fail

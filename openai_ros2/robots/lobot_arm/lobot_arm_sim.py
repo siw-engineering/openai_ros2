@@ -102,14 +102,14 @@ class LobotArmSim(LobotArmBase):
         # We assume that if we do random initial position, the target joint state will be set after we call the random and the positions are obtained
         # So we only set target_joint_state when is not random_init_pos
         if not self.random_init_pos:
-            print(f'Setting 0 initial positions')
+            # print(f'Setting 0 initial positions')
             self._target_joint_state = numpy.array([0.0, 0.0, 0.0])
 
         self._previous_update_sim_time = rclpyTime()
 
     def __contact_subscription_callback(self, message: ContactsState) -> None:
         header_time = message.header.stamp.sec * 1000000000 + message.header.stamp.nanosec
-        print(f"[{message.header.stamp.sec}][{message.header.stamp.nanosec}]Contact!!")
+        # print(f"[{message.header.stamp.sec}][{message.header.stamp.nanosec}]Contact!!")
         current_sim_time = self._current_sim_time.nanoseconds
         time_diff = header_time - current_sim_time
         if header_time < current_sim_time - 1000000000:
