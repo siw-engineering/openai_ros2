@@ -15,6 +15,7 @@ from rclpy.time import Time as rclpyTime
 
 from ros2_control_interfaces.msg import JointControl
 from ros2_control_interfaces.srv import GetCurrentSimTime
+from sensor_msgs.msg import JointState
 
 from openai_ros2.robots.lobot_arm.lobot_arm_base import LobotArmBase
 
@@ -26,11 +27,9 @@ class LobotArmSim(LobotArmBase):
 
     '''-------------PUBLIC METHODS START-------------'''
 
-    def __init__(self, node, robot_kwargs: Dict = None):
-        if robot_kwargs is None:
-            robot_kwargs = {}
+    def __init__(self, node, **kwargs):
         self._gazebo = Gazebo()
-        super().__init__(node, robot_kwargs)
+        super().__init__(node, **kwargs)
         self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
         # Get robot name from parameter server, this is to ensure that the gazebo plugin subscribing to the control
         # reads the same name as this code, because the topic depends on the robot name
@@ -58,7 +57,15 @@ class LobotArmSim(LobotArmBase):
         """
         assert len(action) == 3, f'{len(action)} actions passed to LobotArmSim, expected: 3'
         assert action.shape == (3,), f'Expected action shape of {self._target_joint_state.shape}, actual shape: {action.shape}'
-        self._target_joint_state += action  # TODO change from += to = and investigate the effects
+        # Note that if we want to do controller action based on current position, we need to use the noisy position rather than actual
+        # This is such that it is closer to the real one
+        if self._latest_joint_state_msg is not None:
+            message: JointState = self._latest_joint_state_msg
+            current_position = numpy.array(message.position)
+        else:
+            current_position = numpy.array([0.0, 0.0, 0.0])
+        self._target_joint_state = current_position + action
+        self._target_joint_state += action
         self._target_joint_state = self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, 1.570796])
         msg = JointControl()
         msg.joints = self._joint_names

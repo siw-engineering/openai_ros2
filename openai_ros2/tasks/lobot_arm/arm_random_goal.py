@@ -10,6 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 from gym.spaces import Box
 import os
 import rclpy
+import pickle
 
 
 class ArmState(Enum):
@@ -20,37 +21,43 @@ class ArmState(Enum):
     Timeout = auto()
     Undefined = auto()
 
+
 class LobotArmRandomGoal:
-    def __init__(self, node: rclpy.node.Node, robot, task_kwargs: Dict = None, max_time_step: int = 500):
-        if task_kwargs is None:
-            task_kwargs = {}
+    def __init__(self, node: rclpy.node.Node, robot, max_time_step: int = 500, accepted_dist_to_bounds=0.001,
+                 accepted_error=0.001, reach_target_bonus_reward=0.0, reach_bounds_penalty=0.0, contact_penalty=0.0,
+                 episodes_per_goal=1, goal_buffer_size=20, goal_from_buffer_prob=0.0, num_adjacent_goals=0, is_validation=False,
+                 random_goal_seed=None, normalise_reward=False, continuous_run=False):
         self.node = node
         self.robot = robot
-        self.accepted_dist_to_bounds = task_kwargs.get('accepted_dist_to_bounds', 0.001)
-        self.accepted_error = task_kwargs.get('accepted_error', 0.001)
-        self.reach_target_bonus_reward = task_kwargs.get('reach_target_bonus_reward', 0.0)
-        self.reach_bounds_penalty = task_kwargs.get('reach_bounds_penalty', 0.0)
-        self.contact_penalty = task_kwargs.get('contact_penalty', 0.0)
-        self.episodes_per_goal = task_kwargs.get('episodes_per_goal', 1)
-        self.goal_buffer_size = task_kwargs.get('goal_buffer_size', 20)
-        self.goal_from_buffer_prob = task_kwargs.get('goal_from_buffer_prob', 0.0)
-        self.num_adjacent_goals = task_kwargs.get('num_adjacent_goals', 0)
-        self.is_validation = task_kwargs.get('is_validation', False)
-        self.random_goal_seed = task_kwargs.get('random_goal_seed', None)
-        self.normalise_reward = task_kwargs.get('normalise_reward', False)
+        self._max_time_step = max_time_step
+        self.accepted_dist_to_bounds = accepted_dist_to_bounds
+        self.accepted_error = accepted_error
+        self.reach_target_bonus_reward = reach_target_bonus_reward
+        self.reach_bounds_penalty = reach_bounds_penalty
+        self.contact_penalty = contact_penalty
+        self.episodes_per_goal = episodes_per_goal
+        self.goal_buffer_size = goal_buffer_size
+        self.goal_from_buffer_prob = goal_from_buffer_prob
+        self.num_adjacent_goals = num_adjacent_goals
+        self.is_validation = is_validation
+        self.random_goal_seed = random_goal_seed
+        self.normalise_reward = normalise_reward
+        self.continuous_run = continuous_run
         print(f'-------------------------------Setting task parameters-------------------------------')
-        print('accepted_dist_to_bounds: %f   # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
-        print('accepted_error: %f            # Allowable distance from target coordinates' % self.accepted_error)
-        print('reach_target_bonus_reward: %f # Bonus reward upon reaching target' % self.reach_target_bonus_reward)
-        print('reach_bounds_penalty: %f      # Reward penalty when reaching joint limit' % self.reach_bounds_penalty)
-        print('contact_penalty: %f           # Reward penalty for collision' % self.contact_penalty)
-        print('episodes_per_goal: %d         # Number of episodes before generating another random goal' % self.episodes_per_goal)
-        print('goal_buffer_size: %d          # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
-        print('goal_from_buffer_prob: %f     # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
-        print('num_adjacent_goals: %d        # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
-        print(f'random_goal_seed: {self.random_goal_seed}          # Seed used to generate the random goals')
-        print('is_validation: %r             # Whether this is a validation run, if true will print which points failed and how many reached' % self.is_validation)
-        print('normalise_reward: %r          # Perform reward normalisation, this happens before reward bonus and penalties' % self.normalise_reward)
+        print('max_time_step: %8d               # Maximum time step before stopping the episode' % self._max_time_step)
+        print('accepted_dist_to_bounds: %8.7f    # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
+        print('accepted_error: %8.7f             # Allowable distance from target coordinates' % self.accepted_error)
+        print('reach_target_bonus_reward: %8.7f # Bonus reward upon reaching target' % self.reach_target_bonus_reward)
+        print('reach_bounds_penalty: %8.7f      # Reward penalty when reaching joint limit' % self.reach_bounds_penalty)
+        print('contact_penalty: %8.7f           # Reward penalty for collision' % self.contact_penalty)
+        print('episodes_per_goal: %8d           # Number of episodes before generating another random goal' % self.episodes_per_goal)
+        print('goal_buffer_size: %8d            # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
+        print('goal_from_buffer_prob: %8.7f      # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
+        print('num_adjacent_goals: %8d          # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
+        print(f'random_goal_seed: {self.random_goal_seed:8}            # Seed used to generate the random goals')
+        print('is_validation: %8r               # Whether this is a validation run, if true will print which points failed and how many reached' % self.is_validation)
+        print('normalise_reward: %8r            # Perform reward normalisation, this happens before reward bonus and penalties' % self.normalise_reward)
+        print('continuous_run: %8r              # Continuously run the simulation, even after it reaches the destination' % self.continuous_run)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -66,7 +73,7 @@ class LobotArmRandomGoal:
         assert isinstance(self.num_adjacent_goals, int), f'Number of adjacent goals should be an integer, current type: {type(self.num_adjacent_goals)}'
         assert self.num_adjacent_goals >= 0, f'Number of adjacent goals should be positive, current value: {self.num_adjacent_goals}'
         if self.random_goal_seed is not None:
-            assert isinstance(self.random_goal_seed, int), f'Random goal seed should be an, current type: {type(self.random_goal_seed)}'
+            assert isinstance(self.random_goal_seed, int), f'Random goal seed should be an integer, current type: {type(self.random_goal_seed)}'
 
         self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
@@ -97,8 +104,14 @@ class LobotArmRandomGoal:
             def print_list(list_):
                 for item in list_:
                     print(item)
+            print('Saving failed goals to data.pkl')
+
+            with open('failed_points.pkl', 'wb') as f:
+                pickle.dump(self.fail_points, f, pickle.HIGHEST_PROTOCOL)
             print('Failed goals, target coords: ')
             print_list(enumerate([x for x, y in self.fail_points]))
+
+            # We spawn gazebo markers here to exploit the fact that spinningup test_policy somehow doesn't close gazebo after it's done
             k = 100
             ut_gazebo.create_marker(self.node, 0.0, 0.0, 0.0, diameter=0.004)
             for x, y in self.fail_points:
@@ -126,7 +139,11 @@ class LobotArmRandomGoal:
         self.__reach_count += 1
         if self.is_validation:
             print(f'Reach count: {self.__reach_count}')
-        return True, info_dict
+
+        if self.continuous_run:
+            return False, info_dict
+        else:
+            return True, info_dict
 
     def compute_reward(self, joint_states: numpy.ndarray, arm_state: ArmState) -> Tuple[float, Dict]:
         assert len(joint_states) == 3, f'Expected 3 values for joint states, but got {len(joint_states)} values instead'
@@ -172,6 +189,10 @@ class LobotArmRandomGoal:
 
         # Check if it has reached target destination
         if arm_state == ArmState.Reached:
+            # if reached target destination and is continuous run, we generate another set of coordinates
+            # This has to be after the __calc_dist_change function because that uses self.target_coords to calculate
+            if self.continuous_run:
+                self.target_coords_ik, self.target_coords = self.__get_target_coords()
             reward += self.reach_target_bonus_reward
 
         # Check if it has approached any joint limits

@@ -80,6 +80,31 @@ register(
             }
 )
 register(
+    id='LobotArmContinuous-v6',  # Continuous run environment, does not stop upon reaching goal
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'robot_kwargs': {
+                'random_init_pos': False
+            },
+            'task_kwargs': {
+                'max_time_step': 500,
+                'accepted_dist_to_bounds': 0.002,
+                'accepted_error': 0.001,
+                'reach_target_bonus_reward': 20.0,
+                'reach_bounds_penalty': 20.0,
+                'contact_penalty': 20.0,
+                'episodes_per_goal': 1,
+                'goal_from_buffer_prob': 0.0,
+                'num_adjacent_goals': 0,
+                'random_goal_seed': 10,
+                'is_validation': False,
+                'normalise_reward': False,
+                'continuous_run': True
+            }
+            }
+)
+register(
     id='LobotArmContinuousValidation-v0',
     entry_point='openai_ros2.envs:LobotArmEnv',
     kwargs={'task_cls': LobotArmRandomGoal,
@@ -142,52 +167,6 @@ register(
                 'num_adjacent_goals': 0,
                 'random_goal_seed': 10,
                 'is_validation': True
-            }
-            }
-)
-register(
-    id='LobotArmContinuousJoann-v1',
-    entry_point='openai_ros2.envs:LobotArmEnv',
-    kwargs={'task_cls': LobotArmRandomGoal,
-            'robot_cls': LobotArmSim,
-            'robot_kwargs': {
-                'random_init_pos': False
-            },
-            'task_kwargs': {
-                'accepted_dist_to_bounds': 0.001,
-                'accepted_error': 0.001,
-                'reach_target_bonus_reward': 20.0,
-                'reach_bounds_penalty': 20.0,
-                'contact_penalty': 20.0,
-                'episodes_per_goal': 1,
-                'goal_buffer_size': 60,
-                'goal_from_buffer_prob': 1.0,
-                'num_adjacent_goals': 3,
-                'random_goal_seed': 10,
-                'is_validation': True
-            }
-            }
-)
-register(
-    id='LobotArmContinuousJoann-v2',
-    entry_point='openai_ros2.envs:LobotArmEnv',
-    kwargs={'task_cls': LobotArmRandomGoal,
-            'robot_cls': LobotArmSim,
-            'robot_kwargs': {
-                'random_init_pos': False
-            },
-            'task_kwargs': {
-                'accepted_dist_to_bounds': 0.001,
-                'accepted_error': 0.001,
-                'reach_target_bonus_reward': 20.0,
-                'reach_bounds_penalty': 20.0,
-                'contact_penalty': 20.0,
-                'episodes_per_goal': 1,
-                'goal_buffer_size': 30,
-                'goal_from_buffer_prob': 1.0,
-                'num_adjacent_goals': 0,
-                'random_goal_seed': 10,
-                'is_validation': False
             }
             }
 )

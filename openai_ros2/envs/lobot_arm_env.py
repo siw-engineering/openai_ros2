@@ -30,8 +30,8 @@ class LobotArmEnv(gym.Env):
         sim_time_param = rclpy.parameter.Parameter('use_sim_time', value=True)
         self.node = rclpy.node.Node(robot_cls.__name__, parameter_overrides=[sim_time_param])
         # self.node.set_parameters([sim_time])
-        self.__robot: LobotArmBase = robot_cls(self.node, robot_kwargs)
-        self.__task = task_cls(self.node, self.__robot, task_kwargs)
+        self.__robot: LobotArmBase = robot_cls(self.node, **robot_kwargs)
+        self.__task = task_cls(self.node, self.__robot, **task_kwargs)
         self.action_space = self.__robot.get_action_space()
         self.observation_space = self.__get_observation_space()
         # Set up ROS related variables

@@ -9,10 +9,8 @@ import rclpy
 
 
 class LobotArmFixedGoal(LobotArmRandomGoal):
-    def __init__(self, node: rclpy.node.Node, robot, task_kwargs: Dict = None, max_time_step: int = 500):
-        if task_kwargs is None:
-            task_kwargs = {}
-        super().__init__(node, robot, task_kwargs, max_time_step)
+    def __init__(self, node: rclpy.node.Node, robot, **kwargs):
+        super().__init__(node, robot, **kwargs)
 
         # The target coords is currently arbitrarily set to some point achievable
         # This is the target for grip_end_point when target joint values are: [1.00, -1.00, 1.00]
