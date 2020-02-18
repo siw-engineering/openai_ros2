@@ -19,7 +19,7 @@ def main(args=None):
     #     'contact_penalty': 15.0,
     #     'episodes_per_goal': 5
     # }
-    env: LobotArmEnv = gym.make('LobotArmContinuous-v6')
+    env: LobotArmEnv = gym.make('LobotArmContinuous-v8')
     env.reset()
     # env.set_random_init_pos(True)
     # If unable to set the environment parameters like this, just register more environments like v4 or something

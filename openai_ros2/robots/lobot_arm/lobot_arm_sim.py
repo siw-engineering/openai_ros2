@@ -60,12 +60,15 @@ class LobotArmSim(LobotArmBase):
         # Note that if we want to do controller action based on current position, we need to use the noisy position rather than actual
         # This is such that it is closer to the real one
         if self._latest_joint_state_msg is not None:
-            message: JointState = self._latest_joint_state_msg
-            current_position = numpy.array(message.position)
+            obs = self.get_observations()
+            current_position = obs.position_data
         else:
             current_position = numpy.array([0.0, 0.0, 0.0])
         self._target_joint_state = current_position + action
-        self._target_joint_state += action
+
+        # Old action style, adjusts controller goal
+        # self._target_joint_state += action
+
         self._target_joint_state = self._target_joint_state.clip([-2.356194, -1.570796, -1.570796], [2.356194, 0.500, 1.570796])
         msg = JointControl()
         msg.joints = self._joint_names

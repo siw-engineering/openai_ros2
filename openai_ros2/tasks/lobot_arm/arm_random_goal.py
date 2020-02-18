@@ -26,7 +26,8 @@ class LobotArmRandomGoal:
     def __init__(self, node: rclpy.node.Node, robot, max_time_step: int = 500, accepted_dist_to_bounds=0.001,
                  accepted_error=0.001, reach_target_bonus_reward=0.0, reach_bounds_penalty=0.0, contact_penalty=0.0,
                  episodes_per_goal=1, goal_buffer_size=20, goal_from_buffer_prob=0.0, num_adjacent_goals=0, is_validation=False,
-                 random_goal_seed=None, normalise_reward=False, continuous_run=False):
+                 random_goal_seed=None, normalise_reward=False, continuous_run=False, reward_noise_mu=None, reward_noise_sigma=None,
+                 reward_noise_decay=0.99):
         self.node = node
         self.robot = robot
         self._max_time_step = max_time_step
@@ -43,10 +44,13 @@ class LobotArmRandomGoal:
         self.random_goal_seed = random_goal_seed
         self.normalise_reward = normalise_reward
         self.continuous_run = continuous_run
+        self.reward_noise_mu = reward_noise_mu
+        self.reward_noise_sigma = reward_noise_sigma
+        self.reward_noise_decay = reward_noise_decay
         print(f'-------------------------------Setting task parameters-------------------------------')
         print('max_time_step: %8d               # Maximum time step before stopping the episode' % self._max_time_step)
-        print('accepted_dist_to_bounds: %8.7f    # Allowable distance to joint limits' % self.accepted_dist_to_bounds)
-        print('accepted_error: %8.7f             # Allowable distance from target coordinates' % self.accepted_error)
+        print('accepted_dist_to_bounds: %8.7f    # Allowable distance to joint limits (radians)' % self.accepted_dist_to_bounds)
+        print('accepted_error: %8.7f             # Allowable distance from target coordinates (metres)' % self.accepted_error)
         print('reach_target_bonus_reward: %8.7f # Bonus reward upon reaching target' % self.reach_target_bonus_reward)
         print('reach_bounds_penalty: %8.7f      # Reward penalty when reaching joint limit' % self.reach_bounds_penalty)
         print('contact_penalty: %8.7f           # Reward penalty for collision' % self.contact_penalty)
@@ -54,10 +58,13 @@ class LobotArmRandomGoal:
         print('goal_buffer_size: %8d            # Number goals to store in buffer to be reused later' % self.goal_buffer_size)
         print('goal_from_buffer_prob: %8.7f      # Probability of selecting a random goal from the goal buffer, value between 0 and 1' % self.goal_from_buffer_prob)
         print('num_adjacent_goals: %8d          # Number of nearby goals to be generated for each randomly generated goal ' % self.num_adjacent_goals)
-        print(f'random_goal_seed: {self.random_goal_seed:8}            # Seed used to generate the random goals')
+        print(f'random_goal_seed: {str(self.random_goal_seed):8}            # Seed used to generate the random goals')
         print('is_validation: %8r               # Whether this is a validation run, if true will print which points failed and how many reached' % self.is_validation)
         print('normalise_reward: %8r            # Perform reward normalisation, this happens before reward bonus and penalties' % self.normalise_reward)
         print('continuous_run: %8r              # Continuously run the simulation, even after it reaches the destination' % self.continuous_run)
+        print(f'reward_noise_mu: {self.reward_noise_mu}            # Reward noise mean (reward noise follows gaussian distribution)')
+        print(f'reward_noise_sigma: {self.reward_noise_sigma}         # Reward noise standard deviation, recommended 0.5')
+        print('reward_noise_decay: %8r            # Constant for exponential reward noise decay (recommended 0.135)' % self.reward_noise_decay)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -74,6 +81,9 @@ class LobotArmRandomGoal:
         assert self.num_adjacent_goals >= 0, f'Number of adjacent goals should be positive, current value: {self.num_adjacent_goals}'
         if self.random_goal_seed is not None:
             assert isinstance(self.random_goal_seed, int), f'Random goal seed should be an integer, current type: {type(self.random_goal_seed)}'
+        if reward_noise_decay is not None:
+            assert self.reward_noise_mu is not None and self.reward_noise_sigma is not None
+            assert isinstance(self.reward_noise_mu, float) and isinstance(self.reward_noise_sigma, float)
 
         self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
@@ -135,7 +145,8 @@ class LobotArmRandomGoal:
                 return False, info_dict
         # If all coordinates within acceptance range AND time step within limits, we are done
         info_dict['arm_state'] = ArmState.Reached
-        print(f'Reached destination, target coords: {self.target_coords}, current coords: {current_coords}')
+        info_dict['step_count'] = time_step
+        print(f'Reached destination, target coords: {self.target_coords}, current coords: {current_coords}, time step: {time_step}')
         self.__reach_count += 1
         if self.is_validation:
             print(f'Reach count: {self.__reach_count}')
@@ -183,6 +194,10 @@ class LobotArmRandomGoal:
         else:
             reward = normal_scaled_reward
 
+        # Add reward noise
+        rew_noise = numpy.random.normal(self.reward_noise_mu, self.reward_noise_sigma)
+        reward += rew_noise
+
         self.previous_coords = current_coords
 
         # Reward shaping logic
@@ -193,6 +208,9 @@ class LobotArmRandomGoal:
             # This has to be after the __calc_dist_change function because that uses self.target_coords to calculate
             if self.continuous_run:
                 self.target_coords_ik, self.target_coords = self.__get_target_coords()
+                print(f'Moving to [{self.target_coords[0]:.6f}, {self.target_coords[1]:.6f}, {self.target_coords[2]:.6f}], '
+                      f'Given by joint values [{self.target_coords_ik[0]:.6f}, {self.target_coords_ik[1]:.6f}, {self.target_coords_ik[2]:.6f}]')
+                ut_gazebo.create_marker(self.node, self.target_coords[0], self.target_coords[1], self.target_coords[2], diameter=0.004)
             reward += self.reach_target_bonus_reward
 
         # Check if it has approached any joint limits
@@ -210,10 +228,10 @@ class LobotArmRandomGoal:
         self.__reset_count += 1
         if self.__reset_count % self.episodes_per_goal == 0:
             self.target_coords_ik, self.target_coords = self.__get_target_coords()
+            print(f'Moving to [{self.target_coords[0]:.6f}, {self.target_coords[1]:.6f}, {self.target_coords[2]:.6f}], '
+                  f'Given by joint values [{self.target_coords_ik[0]:.6f}, {self.target_coords_ik[1]:.6f}, {self.target_coords_ik[2]:.6f}]')
             if isinstance(self.robot, LobotArmSim):  # Check if is simulator or real
                 # Move the target marker if it is gazebo
-                print(f'Moving to [{self.target_coords[0]:.6f}, {self.target_coords[1]:.6f}, {self.target_coords[2]:.6f}], '
-                      f'Given by joint values [{self.target_coords_ik[0]:.6f}, {self.target_coords_ik[1]:.6f}, {self.target_coords_ik[2]:.6f}]')
                 spawn_success = ut_gazebo.create_marker(self.node, self.target_coords[0],
                                                         self.target_coords[1], self.target_coords[2], diameter=0.004)
 
@@ -224,7 +242,8 @@ class LobotArmRandomGoal:
             return True, ArmState.Collision
 
         # Check if time step exceeds limits, i.e. timed out
-        if time_step > self._max_time_step:
+        # Time step starts from 0, that means if we only want to run 2 steps time_step will be 0,1 and we need to stop at 1
+        if time_step + 1 >= self._max_time_step:
             return True, ArmState.Timeout
 
         # Check that joint values are not approaching limits
@@ -297,8 +316,8 @@ class LobotArmRandomGoal:
 
     def __get_target_coords(self) -> Tuple[numpy.ndarray, numpy.ndarray]:
         rand_num = numpy.random.rand()
-        # if probability to choose from buffer is very high, i.e. p > 0.99, we make sure buffer is filled first before choosing from buffer
-        high_prob_but_buffer_unfilled = self.goal_from_buffer_prob > 0.99 and len(self.coords_buffer) < self.coords_buffer.maxlen
+        # if probability to choose from buffer is very high, i.e. p > 0.90, we make sure buffer is filled first before choosing from buffer
+        high_prob_but_buffer_unfilled = self.goal_from_buffer_prob > 0.90 and len(self.coords_buffer) < self.coords_buffer.maxlen
         select_from_buffer = rand_num < self.goal_from_buffer_prob
         buffer_is_empty = len(self.coords_buffer) == 0
 

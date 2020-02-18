@@ -90,17 +90,73 @@ register(
             'task_kwargs': {
                 'max_time_step': 500,
                 'accepted_dist_to_bounds': 0.002,
-                'accepted_error': 0.001,
+                'accepted_error': 0.002,
                 'reach_target_bonus_reward': 20.0,
                 'reach_bounds_penalty': 20.0,
                 'contact_penalty': 20.0,
                 'episodes_per_goal': 1,
-                'goal_from_buffer_prob': 0.0,
+                'goal_buffer_size': 50,
+                'goal_from_buffer_prob': 0.98,
                 'num_adjacent_goals': 0,
                 'random_goal_seed': 10,
                 'is_validation': False,
                 'normalise_reward': False,
                 'continuous_run': True
+            }
+            }
+)
+register(
+    id='LobotArmContinuous-v7',  # Continuous run environment, does not stop upon reaching goal
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'robot_kwargs': {
+                'random_init_pos': False
+            },
+            'task_kwargs': {
+                'max_time_step': 1500,
+                'accepted_dist_to_bounds': 0.002,
+                'accepted_error': 0.004,
+                'reach_target_bonus_reward': 20.0,
+                'reach_bounds_penalty': 20.0,
+                'contact_penalty': 20.0,
+                'episodes_per_goal': 1,
+                'goal_buffer_size': 50,
+                'goal_from_buffer_prob': 0.98,
+                'num_adjacent_goals': 0,
+                'random_goal_seed': 10,
+                'is_validation': False,
+                'normalise_reward': False,
+                'continuous_run': True
+            }
+            }
+)
+register(
+    id='LobotArmContinuous-v8',  # Continuous run environment, does not stop upon reaching goal
+    entry_point='openai_ros2.envs:LobotArmEnv',
+    kwargs={'task_cls': LobotArmRandomGoal,
+            'robot_cls': LobotArmSim,
+            'robot_kwargs': {
+                'random_init_pos': False
+            },
+            'task_kwargs': {
+                'max_time_step': 500,
+                'accepted_dist_to_bounds': 0.002,
+                'accepted_error': 0.001,
+                'reach_target_bonus_reward': 30.0,
+                'reach_bounds_penalty': 20.0,
+                'contact_penalty': 20.0,
+                'episodes_per_goal': 1,
+                'goal_buffer_size': 50,
+                'goal_from_buffer_prob': 0.98,
+                'num_adjacent_goals': 0,
+                'random_goal_seed': 10,
+                'is_validation': False,
+                'normalise_reward': False,
+                'continuous_run': False,
+                'reward_noise_mu': 0.0,
+                'reward_noise_sigma': 0.5,
+                'reward_noise_decay': 0.135
             }
             }
 )
