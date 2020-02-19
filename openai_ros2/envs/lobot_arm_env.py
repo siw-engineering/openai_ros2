@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from typing import Tuple, Dict
 
 import gym
@@ -7,7 +8,7 @@ from gym.spaces import Box
 import numpy
 
 from openai_ros2.robots import LobotArmSim, LobotArmBase
-from openai_ros2.utils import ut_launch
+from openai_ros2.utils import ut_launch, Logger
 from openai_ros2.tasks import LobotArmRandomGoal, LobotArmFixedGoal
 
 import rclpy
@@ -37,8 +38,14 @@ class LobotArmEnv(gym.Env):
         # Set up ROS related variables
         self.__episode_num = 0
         self.__cumulated_episode_reward = 0
+        self.__cumulated_reward_noise = 0
+        self.__cumulated_norm_reward = 0
+        self.__cumulated_unshaped_reward = 0
         self.__step_num = 0
         self.__last_done_info = None
+        now = datetime.now()
+        table_name = f'run_{now.strftime("%d_%m_%Y__%H_%M_%S")}'
+        self.__logger = Logger(table_name)
         # self.reset()
 
     def step(self, action: numpy.ndarray) -> Tuple[numpy.ndarray, float, bool, dict]:
@@ -56,8 +63,33 @@ class LobotArmEnv(gym.Env):
         reward, reward_info = self.__task.compute_reward(robot_state.noiseless_position_data, arm_state)
         info: dict = {**reward_info, **done_info}
         self.__cumulated_episode_reward += reward
+        self.__cumulated_reward_noise += reward_info['rew_noise']
+        self.__cumulated_norm_reward += reward_info['normalised_reward']
+        self.__cumulated_unshaped_reward += reward_info['normal_reward']
+
         self.__step_num += 1
         self.__last_done_info = done_info
+        log_kwargs = {
+                      'episode_num': self.__episode_num,
+                      'step_num': self.__step_num,
+                      'arm_state': arm_state,
+                      'dist_to_goal': reward_info['distance_to_goal'],
+                      'target_coords': reward_info['target_coords'],
+                      'current_coords': reward_info['current_coords'],
+                      'joint_pos': robot_state.position_data,
+                      'joint_pos_true': robot_state.noiseless_position_data,
+                      'joint_vel': robot_state.velocity_data,
+                      'joint_vel_true': robot_state.noiseless_velocity_data,
+                      'rew_noise': reward_info['rew_noise'],
+                      'reward': reward,
+                      'normalised_reward': reward_info['normalised_reward'],
+                      'cum_unshaped_reward': self.__cumulated_unshaped_reward,
+                      'cum_normalised_reward': self.__cumulated_norm_reward,
+                      'cum_reward': self.__cumulated_episode_reward,
+                      'cum_rew_noise': self.__cumulated_reward_noise,
+                      'action': action
+                    }
+        self.__logger.store(**log_kwargs)
 
         # print(f"Reward for step {self.__step_num}: {reward}, \t cumulated reward: {self.__cumulated_episode_reward}")
         return obs, reward, done, info
@@ -75,6 +107,9 @@ class LobotArmEnv(gym.Env):
         self.__last_done_info = None
         self.__episode_num += 1
         self.__cumulated_episode_reward = 0
+        self.__cumulated_reward_noise = 0
+        self.__cumulated_norm_reward = 0
+        self.__cumulated_unshaped_reward = 0
         return numpy.zeros(self.observation_space.shape, dtype=float)
 
     def close(self):

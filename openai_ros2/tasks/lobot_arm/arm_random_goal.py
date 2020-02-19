@@ -187,7 +187,8 @@ class LobotArmRandomGoal:
         reward_info = {'normalised_reward': normalised_reward,
                        'normal_reward': normal_scaled_reward,
                        'distance_to_goal': dist,
-                       'current_goal': self.target_coords}
+                       'target_coords': self.target_coords,
+                       'current_coords': current_coords}
 
         if self.normalise_reward:
             reward = normalised_reward
@@ -196,6 +197,7 @@ class LobotArmRandomGoal:
 
         # Add reward noise
         rew_noise = numpy.random.normal(self.reward_noise_mu, self.reward_noise_sigma)
+        reward_info['rew_noise'] = rew_noise
         reward += rew_noise
 
         self.previous_coords = current_coords
@@ -220,7 +222,6 @@ class LobotArmRandomGoal:
         # Check for collision
         if arm_state == ArmState.Collision:
             reward -= self.contact_penalty
-
         return reward, reward_info
 
     def reset(self):
