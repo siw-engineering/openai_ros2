@@ -143,12 +143,12 @@ register(
                 'max_time_step': 500,
                 'accepted_dist_to_bounds': 0.002,
                 'accepted_error': 0.001,
-                'reach_target_bonus_reward': 30.0,
-                'reach_bounds_penalty': 20.0,
-                'contact_penalty': 20.0,
+                'reach_target_bonus_reward': 20.0,
+                'reach_bounds_penalty': 10.0,
+                'contact_penalty': 10.0,
                 'episodes_per_goal': 1,
                 'goal_buffer_size': 50,
-                'goal_from_buffer_prob': 0.98,
+                'goal_from_buffer_prob': 1.0,
                 'num_adjacent_goals': 0,
                 'random_goal_seed': 10,
                 'is_validation': False,
@@ -156,7 +156,7 @@ register(
                 'continuous_run': False,
                 'reward_noise_mu': 0.0,
                 'reward_noise_sigma': 0.5,
-                'reward_noise_decay': 0.135
+                'reward_noise_decay': 0.31073
             }
             }
 )

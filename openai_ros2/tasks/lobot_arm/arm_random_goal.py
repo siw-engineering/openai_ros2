@@ -9,6 +9,7 @@ from openai_ros2.robots import LobotArmSim
 from ament_index_python.packages import get_package_share_directory
 from gym.spaces import Box
 import os
+import math
 import rclpy
 import pickle
 
@@ -46,6 +47,7 @@ class LobotArmRandomGoal:
         self.continuous_run = continuous_run
         self.reward_noise_mu = reward_noise_mu
         self.reward_noise_sigma = reward_noise_sigma
+        self.original_reward_noise_sigma = reward_noise_sigma
         self.reward_noise_decay = reward_noise_decay
         print(f'-------------------------------Setting task parameters-------------------------------')
         print('max_time_step: %8d               # Maximum time step before stopping the episode' % self._max_time_step)
@@ -64,7 +66,7 @@ class LobotArmRandomGoal:
         print('continuous_run: %8r              # Continuously run the simulation, even after it reaches the destination' % self.continuous_run)
         print(f'reward_noise_mu: {self.reward_noise_mu}            # Reward noise mean (reward noise follows gaussian distribution)')
         print(f'reward_noise_sigma: {self.reward_noise_sigma}         # Reward noise standard deviation, recommended 0.5')
-        print('reward_noise_decay: %8r            # Constant for exponential reward noise decay (recommended 0.135)' % self.reward_noise_decay)
+        print('reward_noise_decay: %8r            # Constant for exponential reward noise decay (recommended 0.31073, decays to 0.002 in 20 steps)' % self.reward_noise_decay)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -197,6 +199,7 @@ class LobotArmRandomGoal:
 
         # Add reward noise
         rew_noise = numpy.random.normal(self.reward_noise_mu, self.reward_noise_sigma)
+        self.reward_noise_sigma = self.reward_noise_sigma * math.exp(-self.reward_noise_decay)
         reward_info['rew_noise'] = rew_noise
         reward += rew_noise
 
@@ -225,6 +228,7 @@ class LobotArmRandomGoal:
         return reward, reward_info
 
     def reset(self):
+        self.reward_noise_sigma = self.original_reward_noise_sigma
         self.previous_coords = numpy.array([0.0, 0.0, 0.0])
         self.__reset_count += 1
         if self.__reset_count % self.episodes_per_goal == 0:

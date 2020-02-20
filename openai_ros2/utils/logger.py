@@ -93,9 +93,7 @@ class Logger:
                                         target_coords np_array NOT NULL,
                                         current_coords np_array NOT NULL,
                                         joint_pos np_array NOT NULL,
-                                        joint_pos_true np_array NOT NULL,
                                         joint_vel np_array NOT NULL,
-                                        joint_vel_true np_array NOT NULL,
                                         rew_noise real NOT NULL,
                                         reward real NOT NULL,
                                         normalised_reward real NOT NULL,
@@ -132,9 +130,9 @@ class Logger:
         assert isinstance(target_coords, np.ndarray)
         assert isinstance(current_coords, np.ndarray)
         assert isinstance(joint_pos, np.ndarray)
-        assert isinstance(joint_pos_true, np.ndarray)
+        # assert isinstance(joint_pos_true, np.ndarray)
         assert isinstance(joint_vel, np.ndarray)
-        assert isinstance(joint_vel_true, np.ndarray)
+        # assert isinstance(joint_vel_true, np.ndarray)
         assert isinstance(rew_noise, float)
         assert isinstance(reward, float)
         assert isinstance(normalised_reward, float)
@@ -145,8 +143,8 @@ class Logger:
         assert isinstance(episode_num, int)
         assert isinstance(action, np.ndarray)
 
-        data_tup = (episode_num, step_num, arm_state, dist_to_goal, target_coords, current_coords, joint_pos, joint_pos_true, joint_vel,
-                    joint_vel_true, rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,
+        data_tup = (episode_num, step_num, arm_state, dist_to_goal, target_coords, current_coords, joint_pos, joint_vel,
+                    rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,
                     cum_reward, cum_rew_noise, action)
 
         sqlite3.register_adapter(np.ndarray, adapt_np_array)
@@ -154,10 +152,10 @@ class Logger:
         sqlite3.register_adapter(ArmState, adapt_arm_state)
         sqlite3.register_converter("armstate", convert_arm_state)
         cur.execute(f"insert into {self.table_name} (episode_num, step_num, arm_state, dist_to_goal, target_coords,"
-                    f"current_coords, joint_pos, joint_pos_true, joint_vel, joint_vel_true,"
+                    f"current_coords, joint_pos, joint_vel,"
                     f"rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,"
                     f"cum_reward, cum_rew_noise, action, date_time) "
-                    f"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))", data_tup)
+                    f"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))", data_tup)
 
         self.store_count += 1
         if self.store_count > 10000:
