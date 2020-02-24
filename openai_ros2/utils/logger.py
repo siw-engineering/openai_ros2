@@ -68,6 +68,8 @@ class Logger:
         sqlite3.register_converter("armstate", convert_arm_state)
 
         self.store_count = 0
+        self.buffer_size = 20000
+        self.buffer = []
 
     def create_table(self, table_name) -> bool:
         # Currently the SQL is hardcoded, maybe can consider autogenerate if the table requirements change a lot
@@ -112,13 +114,12 @@ class Logger:
             return False
 
     def __del__(self):
-        self.conn.commit()
+        self.__store_buffer_into_db()
 
     def store(self, episode_num: int, step_num: int, arm_state: ArmState, dist_to_goal: float, target_coords: np.ndarray, current_coords: np.ndarray,
               joint_pos: np.ndarray, joint_pos_true: np.ndarray, joint_vel: np.ndarray, joint_vel_true: np.ndarray, rew_noise: float,
               reward: float, normalised_reward: float, cum_unshaped_reward: float, cum_normalised_reward: float, cum_reward: float, cum_rew_noise: float,
               action: np.ndarray):
-        cur = self.conn.cursor()
         # if not self.has_table:
         #     print('No table created. Not logging')
         #     return
@@ -146,23 +147,14 @@ class Logger:
         data_tup = (episode_num, step_num, arm_state, dist_to_goal, target_coords, current_coords, joint_pos, joint_vel,
                     rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,
                     cum_reward, cum_rew_noise, action)
-
-        sqlite3.register_adapter(np.ndarray, adapt_np_array)
-        sqlite3.register_converter("np_array", convert_np_array)
-        sqlite3.register_adapter(ArmState, adapt_arm_state)
-        sqlite3.register_converter("armstate", convert_arm_state)
-        cur.execute(f"insert into {self.table_name} (episode_num, step_num, arm_state, dist_to_goal, target_coords,"
-                    f"current_coords, joint_pos, joint_vel,"
-                    f"rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,"
-                    f"cum_reward, cum_rew_noise, action, date_time) "
-                    f"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))", data_tup)
-
-        self.store_count += 1
-        if self.store_count > 10000:
-            self.conn.commit()
-            self.store_count = 0
+        self.buffer.append(data_tup)
+        if len(self.buffer) >= self.buffer_size:
+            self.__store_buffer_into_db()
 
     def load(self, sql_statement: str = None):
+        if len(self.buffer) > 0:
+            self.__store_buffer_into_db()
+
         cur = self.conn.cursor()
         if sql_statement is None:
             cur.execute(f"select * from {self.table_name}")
@@ -175,3 +167,14 @@ class Logger:
 
     def get_table_name(self) -> str:
         return self.table_name
+
+    def __store_buffer_into_db(self):
+        cur = self.conn.cursor()
+        for data in self.buffer:
+            cur.execute(f"insert into {self.table_name} (episode_num, step_num, arm_state, dist_to_goal, target_coords,"
+                        f"current_coords, joint_pos, joint_vel,"
+                        f"rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,"
+                        f"cum_reward, cum_rew_noise, action, date_time) "
+                        f"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))", data)
+        self.conn.commit()
+        self.buffer = []

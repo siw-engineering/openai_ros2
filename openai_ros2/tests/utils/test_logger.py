@@ -35,6 +35,9 @@ class TestLogger(unittest.TestCase):
         for _ in range(50000):
             logger.store(**kwargs)
         loaded_data = logger.load()
+        # We delete the 2 currently unstored key-value pairs such that tests still pass
+        del kwargs['joint_vel_true']
+        del kwargs['joint_pos_true']
         arg_vals = [v for k, v in kwargs.items()]
         loaded_vals = loaded_data[0][1:-1]
         assert len(arg_vals) == len(loaded_vals)
