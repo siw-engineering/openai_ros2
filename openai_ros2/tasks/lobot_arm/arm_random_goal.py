@@ -167,11 +167,11 @@ class LobotArmRandomGoal:
         assert arm_state != ArmState.Undefined, f'Arm state cannot be undefined, please check logic'
 
         # Give 0 reward on initial state
-        if numpy.array_equal(self.previous_coords, numpy.array([0.0, 0.0, 0.0])):
-            # print('Initial state detected, giving 0 reward')
-            reward = 0.0
-        else:
-            reward = self.__calc_dist_change(self.previous_coords, current_coords)
+        # if numpy.array_equal(self.previous_coords, numpy.array([0.0, 0.0, 0.0])):
+        #     # print('Initial state detected, giving 0 reward')
+        #     reward = 0.0
+        # else:
+        reward = self.__calc_dist_change(self.previous_coords, current_coords)
 
         # normalise rewards
         mag_target = numpy.linalg.norm(self.target_coords)
