@@ -28,7 +28,7 @@ class LobotArmRandomGoal:
                  accepted_error=0.001, reach_target_bonus_reward=0.0, reach_bounds_penalty=0.0, contact_penalty=0.0,
                  episodes_per_goal=1, goal_buffer_size=20, goal_from_buffer_prob=0.0, num_adjacent_goals=0, is_validation=False,
                  random_goal_seed=None, normalise_reward=False, continuous_run=False, reward_noise_mu=None, reward_noise_sigma=None,
-                 reward_noise_decay=0.99, exp_rew_scaling=None):
+                 reward_noise_decay=None, exp_rew_scaling=None):
         self.node = node
         self.robot = robot
         self._max_time_step = max_time_step
@@ -67,8 +67,8 @@ class LobotArmRandomGoal:
         print('continuous_run: %8r              # Continuously run the simulation, even after it reaches the destination' % self.continuous_run)
         print(f'reward_noise_mu: {self.reward_noise_mu}            # Reward noise mean (reward noise follows gaussian distribution)')
         print(f'reward_noise_sigma: {self.reward_noise_sigma}         # Reward noise standard deviation, recommended 0.5')
-        print('reward_noise_decay: %8r            # Constant for exponential reward noise decay (recommended 0.31073, decays to 0.002 in 20 steps)' % self.reward_noise_decay)
-        print(f'exp_rew_scaling: {self.exp_rew_scaling}            # Constant for exponential reward scaling (None by default, recommended 5.0, cumulative exp_reward = 29.48)' % self.exp_rew_scaling)
+        print(f'reward_noise_decay: {self.reward_noise_decay}            # Constant for exponential reward noise decay (recommended 0.31073, decays to 0.002 in 20 steps)')
+        print(f'exp_rew_scaling: {self.exp_rew_scaling}            # Constant for exponential reward scaling (None by default, recommended 5.0, cumulative exp_reward = 29.48)')
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -207,15 +207,20 @@ class LobotArmRandomGoal:
         # Calculate exponential reward component
         if self.exp_rew_scaling is not None:
             exp_reward = self.__calc_exponential_reward(self.previous_coords, current_coords)
-            reward_info['exp_reward']: exp_reward
+            reward_info['exp_reward'] = exp_reward
             reward += exp_reward
-
+        else:
+            reward_info['exp_reward'] = 0.0
 
         # Add reward noise
-        rew_noise = numpy.random.normal(self.reward_noise_mu, self.reward_noise_sigma)
-        self.reward_noise_sigma = self.reward_noise_sigma * math.exp(-self.reward_noise_decay)
-        reward_info['rew_noise'] = rew_noise
-        reward += rew_noise
+        if self.reward_noise_mu is not None and self.reward_noise_sigma is not None:
+            rew_noise = numpy.random.normal(self.reward_noise_mu, self.reward_noise_sigma)
+            if self.reward_noise_decay is not None:
+                self.reward_noise_sigma = self.reward_noise_sigma * math.exp(-self.reward_noise_decay)
+            reward_info['rew_noise'] = rew_noise
+            reward += rew_noise
+        else:
+            reward_info['rew_noise'] = 0.0
 
         self.previous_coords = current_coords
 

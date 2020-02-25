@@ -85,8 +85,10 @@ class LobotArmEnv(gym.Env):
                       'rew_noise': reward_info['rew_noise'],
                       'reward': reward,
                       'normalised_reward': reward_info['normalised_reward'],
+                      'exp_reward': reward_info['exp_reward'],
                       'cum_unshaped_reward': self.__cumulated_unshaped_reward,
                       'cum_normalised_reward': self.__cumulated_norm_reward,
+                      'cum_exp_reward': self.__cumulated_exp_reward,
                       'cum_reward': self.__cumulated_episode_reward,
                       'cum_rew_noise': self.__cumulated_reward_noise,
                       'action': action
