@@ -41,6 +41,7 @@ class LobotArmEnv(gym.Env):
         self.__cumulated_reward_noise = 0
         self.__cumulated_norm_reward = 0
         self.__cumulated_unshaped_reward = 0
+        self.__cumulated_exp_reward = 0
         self.__step_num = 0
         self.__last_done_info = None
         now = datetime.now()
@@ -66,6 +67,7 @@ class LobotArmEnv(gym.Env):
         self.__cumulated_reward_noise += reward_info['rew_noise']
         self.__cumulated_norm_reward += reward_info['normalised_reward']
         self.__cumulated_unshaped_reward += reward_info['normal_reward']
+        self.__cumulated_exp_reward += reward_info['exp_reward']
 
         self.__step_num += 1
         self.__last_done_info = done_info
@@ -110,6 +112,7 @@ class LobotArmEnv(gym.Env):
         self.__cumulated_reward_noise = 0
         self.__cumulated_norm_reward = 0
         self.__cumulated_unshaped_reward = 0
+        self.__cumulated_exp_reward = 0
         return numpy.zeros(self.observation_space.shape, dtype=float)
 
     def close(self):

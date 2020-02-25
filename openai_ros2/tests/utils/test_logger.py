@@ -26,8 +26,10 @@ class TestLogger(unittest.TestCase):
             'rew_noise': rand_num * 0.5,
             'reward': rand_num * 3,
             'normalised_reward': rand_num + np.random.rand(),
+            'exp_reward': rand_num + np.random.rand() + np.random.rand(),
             'cum_unshaped_reward': rand_num * 6 + np.random.rand(),
             'cum_normalised_reward': rand_num * 8 + np.random.rand(),
+            'cum_exp_reward': rand_num * 10 + np.random.rand(),
             'cum_reward': rand_num * 30,
             'cum_rew_noise': rand_num * 5,
             'action': dummy_action

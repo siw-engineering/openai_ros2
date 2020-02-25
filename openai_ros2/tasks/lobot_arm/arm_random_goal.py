@@ -28,7 +28,7 @@ class LobotArmRandomGoal:
                  accepted_error=0.001, reach_target_bonus_reward=0.0, reach_bounds_penalty=0.0, contact_penalty=0.0,
                  episodes_per_goal=1, goal_buffer_size=20, goal_from_buffer_prob=0.0, num_adjacent_goals=0, is_validation=False,
                  random_goal_seed=None, normalise_reward=False, continuous_run=False, reward_noise_mu=None, reward_noise_sigma=None,
-                 reward_noise_decay=0.99):
+                 reward_noise_decay=0.99, exp_rew_scaling=None):
         self.node = node
         self.robot = robot
         self._max_time_step = max_time_step
@@ -49,6 +49,7 @@ class LobotArmRandomGoal:
         self.reward_noise_sigma = reward_noise_sigma
         self.original_reward_noise_sigma = reward_noise_sigma
         self.reward_noise_decay = reward_noise_decay
+        self.exp_rew_scaling = exp_rew_scaling
         print(f'-------------------------------Setting task parameters-------------------------------')
         print('max_time_step: %8d               # Maximum time step before stopping the episode' % self._max_time_step)
         print('accepted_dist_to_bounds: %8.7f    # Allowable distance to joint limits (radians)' % self.accepted_dist_to_bounds)
@@ -67,6 +68,7 @@ class LobotArmRandomGoal:
         print(f'reward_noise_mu: {self.reward_noise_mu}            # Reward noise mean (reward noise follows gaussian distribution)')
         print(f'reward_noise_sigma: {self.reward_noise_sigma}         # Reward noise standard deviation, recommended 0.5')
         print('reward_noise_decay: %8r            # Constant for exponential reward noise decay (recommended 0.31073, decays to 0.002 in 20 steps)' % self.reward_noise_decay)
+        print(f'exp_rew_scaling: {self.exp_rew_scaling}            # Constant for exponential reward scaling (None by default, recommended 5.0, cumulative exp_reward = 29.48)' % self.exp_rew_scaling)
         print(f'-------------------------------------------------------------------------------------')
 
         assert self.accepted_dist_to_bounds >= 0.0, 'Allowable distance to joint limits should be positive'
@@ -86,6 +88,8 @@ class LobotArmRandomGoal:
         if reward_noise_decay is not None:
             assert self.reward_noise_mu is not None and self.reward_noise_sigma is not None
             assert isinstance(self.reward_noise_mu, float) and isinstance(self.reward_noise_sigma, float)
+        if exp_rew_scaling is not None:
+            assert isinstance(self.exp_rew_scaling, float), f'Exponential reward scaling factor should be a float, current type: {type(self.exp_rew_scaling)}'
 
         self._max_time_step = max_time_step
         lobot_desc_share_path = get_package_share_directory('lobot_description')
@@ -180,6 +184,9 @@ class LobotArmRandomGoal:
         # Scale up normalised reward slightly such that the total reward is between 0 and 10 instead of between 0 and 1
         normalised_reward *= 10
 
+
+
+
         # Scale up reward so that it is not so small if not normalised
         normal_scaled_reward = reward * 100
 
@@ -196,6 +203,13 @@ class LobotArmRandomGoal:
             reward = normalised_reward
         else:
             reward = normal_scaled_reward
+
+        # Calculate exponential reward component
+        if self.exp_rew_scaling is not None:
+            exp_reward = self.__calc_exponential_reward(self.previous_coords, current_coords)
+            reward_info['exp_reward']: exp_reward
+            reward += exp_reward
+
 
         # Add reward noise
         rew_noise = numpy.random.normal(self.reward_noise_mu, self.reward_noise_sigma)
@@ -281,6 +295,21 @@ class LobotArmRandomGoal:
         diff_abs_next = numpy.linalg.norm(coords_next - self.target_coords)
 
         return diff_abs_init - diff_abs_next
+
+    def __calc_exponential_reward(self, coords_init: numpy.ndarray, coords_next: numpy.ndarray) -> float:
+        # compute exponential scaling normalised reward
+        # formula = integral(e^0.4x) from x_init to x_final, x is normalised distance from goal
+        # formula = 1/0.4 * (e^0.4 x_final - e^0.4 x_init)
+        # Since x now starts from 1 and ends with 0, which is the opposite of the intended curve, we change x to y where y = 1-x
+        # Now y scales from 0 to 1, and then we use y as the "normalised distance"
+        mag_target = numpy.linalg.norm(self.target_coords)
+        diff_abs_init_scaled = numpy.linalg.norm(coords_init - self.target_coords) / mag_target
+        diff_abs_next_scaled = numpy.linalg.norm(coords_next - self.target_coords) / mag_target
+        y_init = 1 - diff_abs_init_scaled
+        y_next = 1 - diff_abs_next_scaled
+
+        rew = 1/self.exp_rew_scaling * (math.exp(self.exp_rew_scaling*y_next) - math.exp(self.exp_rew_scaling*y_init))
+        return rew
 
     def __get_coords(self, joint_states: numpy.ndarray) -> numpy.ndarray:
         if len(joint_states) != 3:

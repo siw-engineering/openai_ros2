@@ -99,8 +99,10 @@ class Logger:
                                         rew_noise real NOT NULL,
                                         reward real NOT NULL,
                                         normalised_reward real NOT NULL,
+                                        exp_reward real NOT NULL,
                                         cum_unshaped_reward real NOT NULL,
                                         cum_normalised_reward real NOT NULL,
+                                        cum_exp_reward real NOT NULL,
                                         cum_reward real NOT NULL,
                                         cum_rew_noise real NOT NULL,
                                         action np_array NOT NULL,
@@ -118,7 +120,8 @@ class Logger:
 
     def store(self, episode_num: int, step_num: int, arm_state: ArmState, dist_to_goal: float, target_coords: np.ndarray, current_coords: np.ndarray,
               joint_pos: np.ndarray, joint_pos_true: np.ndarray, joint_vel: np.ndarray, joint_vel_true: np.ndarray, rew_noise: float,
-              reward: float, normalised_reward: float, cum_unshaped_reward: float, cum_normalised_reward: float, cum_reward: float, cum_rew_noise: float,
+              reward: float, normalised_reward: float, exp_reward: float, cum_unshaped_reward: float, cum_normalised_reward: float,
+              cum_exp_reward:float, cum_reward: float, cum_rew_noise: float,
               action: np.ndarray):
         # if not self.has_table:
         #     print('No table created. Not logging')
@@ -137,15 +140,18 @@ class Logger:
         assert isinstance(rew_noise, float)
         assert isinstance(reward, float)
         assert isinstance(normalised_reward, float)
+        assert isinstance(exp_reward, float)
         assert isinstance(cum_unshaped_reward, float)
         assert isinstance(cum_normalised_reward, float)
+        assert isinstance(cum_exp_reward, float)
         assert isinstance(cum_reward, float)
         assert isinstance(cum_rew_noise, float)
         assert isinstance(episode_num, int)
         assert isinstance(action, np.ndarray)
 
+        # TODO: Store datetime into this tuple and store it into the database instead of letting the database generate datetime
         data_tup = (episode_num, step_num, arm_state, dist_to_goal, target_coords, current_coords, joint_pos, joint_vel,
-                    rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,
+                    rew_noise, reward, normalised_reward, exp_reward, cum_unshaped_reward, cum_normalised_reward, cum_exp_reward,
                     cum_reward, cum_rew_noise, action)
         self.buffer.append(data_tup)
         if len(self.buffer) >= self.buffer_size:
@@ -173,8 +179,8 @@ class Logger:
         for data in self.buffer:
             cur.execute(f"insert into {self.table_name} (episode_num, step_num, arm_state, dist_to_goal, target_coords,"
                         f"current_coords, joint_pos, joint_vel,"
-                        f"rew_noise, reward, normalised_reward, cum_unshaped_reward, cum_normalised_reward,"
+                        f"rew_noise, reward, normalised_reward, exp_reward, cum_unshaped_reward, cum_normalised_reward, cum_exp_reward,"
                         f"cum_reward, cum_rew_noise, action, date_time) "
-                        f"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))", data)
+                        f"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))", data)
         self.conn.commit()
         self.buffer = []
