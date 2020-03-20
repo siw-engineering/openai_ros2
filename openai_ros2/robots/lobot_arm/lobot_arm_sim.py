@@ -28,7 +28,7 @@ class LobotArmSim(LobotArmBase):
     '''-------------PUBLIC METHODS START-------------'''
 
     def __init__(self, node, **kwargs):
-        self._gazebo = Gazebo()
+        self._gazebo = Gazebo(use_gui=True)
         super().__init__(node, **kwargs)
         self._update_period_ns = 1000000000 / ut_param_server.get_update_rate(self.node)
         # Get robot name from parameter server, this is to ensure that the gazebo plugin subscribing to the control
