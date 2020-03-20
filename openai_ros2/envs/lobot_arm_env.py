@@ -53,9 +53,9 @@ class LobotArmEnv(gym.Env):
         self.__robot.set_action(action)
         robot_state: LobotArmBase.Observation = self.__robot.get_observations()
         if isinstance(self.__task, LobotArmFixedGoal):
-            obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data, robot_state.target_joint_state))
+            obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data))
         elif isinstance(self.__task, LobotArmRandomGoal):
-            obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data, robot_state.target_joint_state, self.__task.target_coords))
+            obs = numpy.concatenate((robot_state.position_data, robot_state.velocity_data, self.__task.target_coords))
         else:
             raise Exception(f'Task expects LobotArmFixedGoal or LobotArmRandomGoal, but received task of type {type(self.__task)}')
 
