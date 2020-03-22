@@ -135,21 +135,19 @@ class LobotArmEnv(gym.Env):
     def __get_observation_space(self):
         joint_pos_lower_limit = numpy.array([-2.356, -1.57, -1.57])
         joint_vel_lower_limit = numpy.array([-3, -3, -3])
-        target_pos_lower_limit = joint_pos_lower_limit
         target_coord_lower_limit = numpy.array([-0.16, -0.16, 0])
 
         joint_pos_upper_limit = numpy.array([2.356, 0.5, 1.57])
         joint_vel_upper_limit = numpy.array([3, 3, 3])
-        target_pos_upper_limit = joint_pos_lower_limit
         target_coord_upper_limit = numpy.array([0.16, 0.16, 0.24])
 
         if isinstance(self.__task, LobotArmFixedGoal):
-            lower_limits_partial = numpy.concatenate((joint_pos_lower_limit, joint_vel_lower_limit, target_pos_lower_limit))
-            upper_limits_partial = numpy.concatenate((joint_pos_upper_limit, joint_vel_upper_limit, target_pos_upper_limit))
+            lower_limits_partial = numpy.concatenate((joint_pos_lower_limit, joint_vel_lower_limit))
+            upper_limits_partial = numpy.concatenate((joint_pos_upper_limit, joint_vel_upper_limit))
             return Box(lower_limits_partial, upper_limits_partial)
         elif isinstance(self.__task, LobotArmRandomGoal):
-            lower_limits_full = numpy.concatenate((joint_pos_lower_limit, joint_vel_lower_limit, target_pos_lower_limit, target_coord_lower_limit))
-            upper_limits_full = numpy.concatenate((joint_pos_upper_limit, joint_vel_upper_limit, target_pos_upper_limit, target_coord_upper_limit))
+            lower_limits_full = numpy.concatenate((joint_pos_lower_limit, joint_vel_lower_limit, target_coord_lower_limit))
+            upper_limits_full = numpy.concatenate((joint_pos_upper_limit, joint_vel_upper_limit, target_coord_upper_limit))
             return Box(lower_limits_full, upper_limits_full)
         else:
             raise Exception('Please set a task before getting observation space, '
