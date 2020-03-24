@@ -257,7 +257,10 @@ class LobotArmRandomGoal:
 
     def reset(self):
         self.reward_noise_sigma = self.original_reward_noise_sigma
-        self.previous_coords = numpy.array([0.0, 0.0, 0.0])
+        # Set initial coordinates
+        initial_joint_values = numpy.array([0.0, 0.0, 0.0])
+        res = self._fk.calculate('world', 'grip_end_point', initial_joint_values)
+        self.previous_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
         self.__reset_count += 1
         if self.__reset_count % self.episodes_per_goal == 0:
             self.target_coords_ik, self.target_coords = self.__get_target_coords()
