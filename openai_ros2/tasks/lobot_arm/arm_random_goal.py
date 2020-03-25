@@ -112,7 +112,8 @@ class LobotArmRandomGoal:
             # Spawn the target marker if it is gazebo
             print(f'Spawning to: {(target_x, target_y, target_z)}')
             spawn_success = ut_gazebo.create_marker(node, target_x, target_y, target_z, diameter=0.004)
-        self.previous_coords = numpy.array([0.0, 0.0, 0.0])
+        self.previous_coords = None
+        self.initial_coords = None
         self.__reset_count: int = 0
         self.fail_points = []
         self.__reach_count: int = 0
@@ -185,7 +186,7 @@ class LobotArmRandomGoal:
         reward = self.__calc_dist_change(self.previous_coords, current_coords)
 
         # normalise rewards
-        mag_target = numpy.linalg.norm(self.target_coords)
+        mag_target = numpy.linalg.norm(self.initial_coords - self.target_coords)
         normalised_reward = reward / mag_target
 
         # Scale up normalised reward slightly such that the total reward is between 0 and 10 instead of between 0 and 1
@@ -261,6 +262,7 @@ class LobotArmRandomGoal:
         initial_joint_values = numpy.array([0.0, 0.0, 0.0])
         res = self._fk.calculate('world', 'grip_end_point', initial_joint_values)
         self.previous_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
+        self.initial_coords = numpy.array([res.translation.x, res.translation.y, res.translation.z])
         self.__reset_count += 1
         if self.__reset_count % self.episodes_per_goal == 0:
             self.target_coords_ik, self.target_coords = self.__get_target_coords()
@@ -328,7 +330,7 @@ class LobotArmRandomGoal:
         # compute exponential scaling normalised reward
         # formula = integral(e^0.4x) from x_init to x_final, x is normalised distance from goal
         # total cumulative reward = 1/scaling * (e^0.4 x_final - 1)
-        mag_target = numpy.linalg.norm(self.target_coords)
+        mag_target = numpy.linalg.norm(self.initial_coords - self.target_coords)
         diff_abs_init_scaled = numpy.linalg.norm(coords_init - self.target_coords) / mag_target
         diff_abs_next_scaled = numpy.linalg.norm(coords_next - self.target_coords) / mag_target
 
