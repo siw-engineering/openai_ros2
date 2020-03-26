@@ -321,7 +321,10 @@ class LobotArmRandomGoal:
             # Now y scales from 0 to 1, and then we use y as the "normalised distance"
             y = 1 - dist  # Change the variable such that max reward is when dist is = 0, and reward = 0 when dist is 1
             if y < 0:
-                cum_neg_rew = -1 / scaling * (math.exp(scaling * -y) - 1)
+                # Linear in negative region, if y = -1 reward is -5, y = 0 reward is 0
+                cum_neg_rew = y * 5
+
+                # cum_neg_rew = -1 / scaling * (math.exp(scaling * -y) - 1)
                 return cum_neg_rew
             else:
                 cum_positive_rew = 1 / scaling * (math.exp(scaling * y) - 1)
@@ -352,7 +355,7 @@ class LobotArmRandomGoal:
         if self.random_goal_seed is not None:
             self.__seed_numpy()
 
-        while True:
+        while True: 
             random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
             res = self._fk.calculate('world', 'grip_end_point', random_joint_values)
             if res.translation.z > 0.0:
