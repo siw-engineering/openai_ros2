@@ -128,6 +128,7 @@ class LobotArmRandomGoal:
             def print_list(list_):
                 for item in list_:
                     print(item)
+
             print('Saving failed goals to data.pkl')
 
             with open('failed_points.pkl', 'wb') as f:
@@ -191,7 +192,6 @@ class LobotArmRandomGoal:
 
         # Scale up normalised reward slightly such that the total reward is between 0 and 10 instead of between 0 and 1
         normalised_reward *= 10
-
 
         # Scale up reward so that it is not so small if not normalised
         normal_scaled_reward = reward * 100
@@ -322,7 +322,10 @@ class LobotArmRandomGoal:
             y = 1 - dist  # Change the variable such that max reward is when dist is = 0, and reward = 0 when dist is 1
             if y < 0:
                 # Linear in negative region, if y = -1 reward is -5, y = 0 reward is 0
-                cum_neg_rew = y * 5
+                if y < -8:
+                    cum_neg_rew = (y + 8) * 0.5 + (-40)
+                else:
+                    cum_neg_rew = y * 5
 
                 # cum_neg_rew = -1 / scaling * (math.exp(scaling * -y) - 1)
                 return cum_neg_rew
@@ -342,7 +345,6 @@ class LobotArmRandomGoal:
         cum_rew_change = current_cum_rew - prev_cum_rew
         return cum_rew_change
 
-
     def __get_coords(self, joint_states: numpy.ndarray) -> numpy.ndarray:
         if len(joint_states) != 3:
             print(f'Expected 3 values for joint states, but got {len(joint_states)} values instead')
@@ -355,7 +357,7 @@ class LobotArmRandomGoal:
         if self.random_goal_seed is not None:
             self.__seed_numpy()
 
-        while True: 
+        while True:
             random_joint_values = numpy.random.uniform([-2.3562, -1.5708, -1.5708], [2.3562, 0.5, 1.5708])
             res = self._fk.calculate('world', 'grip_end_point', random_joint_values)
             if res.translation.z > 0.0:
@@ -411,9 +413,11 @@ class LobotArmRandomGoal:
         if len(self.coords_buffer) == self.coords_buffer.maxlen and not hasattr(self, 'first_time_printing_coords'):
             # Use this attribute to determine if we have printed coords or not, if no such attribute means first time printing
             self.first_time_printing_coords = True
+
             def print_list(list_):
                 for item in list_:
                     print(item)
+
             print('Using target coords: ')
             print_list(enumerate([y for x, y in self.coords_buffer]))
 
